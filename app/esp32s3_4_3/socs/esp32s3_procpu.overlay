@@ -1,0 +1,152 @@
+#include <zephyr/dt-bindings/led/led.h>
+#include <zephyr/dt-bindings/spi/spi.h>
+
+
+&pinctrl{
+	spim3_default: spim3_default{
+		group1 {
+			pinmux = <SPIM3_MOSI_GPIO48>;
+		};
+	};
+
+	/* SPI2 (FSPI) pins for ADC communication */
+	spi2_default: spi2_default {
+		group1 {
+			pinmux = <SPIM2_SCLK_GPIO12>,
+					 <SPIM2_MOSI_GPIO13>,
+					 <SPIM2_MISO_GPIO11>;
+		};
+	};
+/* UART2 핀 배치: 예시로 TX=GPIO17, RX=GPIO18 사용
+	   필요시 원하는 GPIO 번호로 바꿔도 됩니다.
+	   (esp32s3-pinctrl.h에 UART2_TX_GPIOxx / UART2_RX_GPIOxx 매크로 존재) */
+	uart2_pins: uart2_pins {
+		group1 {
+			pinmux = <UART2_TX_GPIO9>;
+			/* TX 출력 기본값 등 필요시 속성 추가 가능 */
+		};
+		group2 {
+			pinmux = <UART2_RX_GPIO8>;
+			bias-pull-up;
+		};
+	};
+
+};
+
+/ {
+	chosen {
+	 zephyr,display = &ssd1306_128x64;
+	 zephyr,modbus = &modbus0;
+//	 zephyr,led-strip = &led_strip;
+	};
+
+	aliases {
+		// usb-cdc = &usb_serial;
+		 rtc = &ds3231_rtc;
+		 led-strip = &led_strip;
+	};
+};
+
+&wifi {
+	status = "okay";
+};
+
+/* --- SPI2: ADS1220 ADC Communication --- */
+&spi2 {
+	status = "okay";
+	pinctrl-0 = <&spi2_default>;
+	pinctrl-names = "default";
+	cs-gpios = <&gpio0 10 GPIO_ACTIVE_LOW>;
+
+	ads1220_adc: ads1220@0 {
+		compatible = "ti,ads1220";
+		reg = <0>;
+		spi-max-frequency = <4000000>; /* 4MHz for ADS1220, max is 6.67MHz */
+	
+		/* === Zephyr 4.2에서 SPI_DT_SPEC_GET가 기대하는 새 속성 === */
+  	duplex = <SPI_FULL_DUPLEX>;      /* 3-wire가 아니라면 전이중 */
+  	// mode = <SPI_MODE_CPHA>;          /* ADS1220 권장: Mode 1(CPOL=0, CPHA=1) */
+  	/* Mode 3이라면: mode = <SPI_MODE_CPOL | SPI_MODE_CPHA>; */
+	};
+};
+
+/* --- SPI3: WS2812 over SPI --- */
+&spi3 {
+    status = "okay";
+    pinctrl-0 = <&spim3_default>;
+    pinctrl-names = "default";
+
+    /* WS2812용 파형 인코딩용 설정 */
+    line-idle-low;
+		led_strip: ws2812@0 {
+        compatible = "worldsemi,ws2812-spi";
+        reg = <0>;
+        status = "okay";
+
+        /* 단일 LED라면 1, 계속 연결하면 개수대로 */
+        chain-length = <1>;
+
+        /* 800 kHz 타이밍을 SPI로 에뮬레이션 */
+        spi-max-frequency = <6400000>;
+        spi-cpha;
+        spi-one-frame = <0xF0>; /* 1비트: 0.625us H / 0.625us L */
+        spi-zero-frame = <0xC0>;/* 0비트: 0.3125us H / 0.9375us L */
+
+        /* GRB 순서(보드 기본 RGB LED가 보통 GRB) */
+        color-mapping = <LED_COLOR_ID_GREEN
+                         LED_COLOR_ID_RED
+                         LED_COLOR_ID_BLUE>;
+    };
+ 
+};
+
+
+/* OLED display */
+&i2c0 {
+	status = "okay";
+	clock-frequency = <I2C_BITRATE_STANDARD>;
+	pinctrl-0 = <&i2c0_default>;
+	pinctrl-names = "default";
+	ssd1306_128x64: ssd1306@3c {
+		compatible = "solomon,ssd1306fb";
+		reg = <0x3c>;
+		width = <128>;
+		height = <64>;
+		segment-offset = <0>;
+		page-offset = <0>;
+		display-offset = <0>;
+		multiplex-ratio = <63>;
+		segment-remap;
+		com-invdir;
+		prechargep = <0x22>;
+ 		};
+	ds3231_rtc: ds3231@68 {
+		compatible = "maxim,ds3231";
+		reg = <0x68>;	
+		isw-gpios = <&gpio0 0 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;
+		};
+};
+&uart2 {
+	status = "okay";
+	current-speed = <4800>;
+	pinctrl-0 = <&uart2_pins>;
+	pinctrl-names = "default";
+
+	/* (선택) ESP32 하드웨어 RS-485 모드: DTR 핀으로 DE 자동 제어
+	 * RS-485 트랜시버의 DE를 UART2 DTR에 물렸을 때만 켜세요.
+	 * hw-rs485-hd-mode;
+	 */
+
+	/* Modbus RTU(시리얼) 노드 — UART의 자식 노드 */
+	modbus0: modbus-serial {
+		compatible = "zephyr,modbus-serial";
+		status = "okay";
+
+		/* RS-485 트랜시버 DE/RE 제어 핀 (예: GPIO10에 DE와 ~RE 묶음)
+		   하드웨어가 DE와 ~RE를 한 핀에 묶었다면 아래처럼 같은 핀을
+		   active-high / active-low로 각각 지정합니다. */
+		//de-gpios = <&gpio0 10 GPIO_ACTIVE_HIGH>;
+		//re-gpios = <&gpio0 10 GPIO_ACTIVE_LOW>;
+	};
+};
+

@@ -1,0 +1,119 @@
+/*
+ * Copyright (c) 2022 Espressif Systems (Shanghai) Co., Ltd.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+#include <zephyr/dt-bindings/led/led.h>
+
+
+&pinctrl{
+	spim3_default: spim3_default{
+		group2 {
+			pinmux = <SPIM3_MOSI_GPIO48>;
+		};
+	};
+};
+
+/ {
+	chosen {
+/*zephyr,console = &usb_serial;*/
+/*zephyr,shell-uart = &usb_serial;*/
+	 zephyr,display = &ssd1306_128x64;
+	};
+
+	aliases {
+		usb-cdc = &usb_serial;
+		rtc = &ds3231_rtc;
+		led-strip = &led_strip;
+	};
+
+	wifi_ap: wifi_ap {
+		compatible = "espressif,esp32-wifi";
+		status = "okay";
+	};
+};
+
+
+
+&usb_serial {
+	status = "okay";
+};
+
+&wifi {
+	status = "okay";
+};
+
+/* led strip configuration */
+
+&spi3{
+	/* Workaround to support WS2812 driver */
+	line-idle-low;
+	led_strip: ws2812@0{
+		compatible = "worldsemi,ws2812-spi";
+		
+		/* SPI */
+		reg = <0>;
+		spi-max-frequency = <6400000>;
+
+		/*WS2812*/
+		chain-length = <1>;
+		spi-cpha;
+		spi-one-frame = <0xf0>; /* 11110000: 625 ns high and 625 ns low */
+		spi-zero-frame = <0xc0>;/* 11000000: 312.5 ns high and 937.5 ns low */
+   	color-mapping = <LED_COLOR_ID_GREEN
+   									 LED_COLOR_ID_RED
+   									 LED_COLOR_ID_BLUE>;
+
+
+	};
+};
+
+
+
+
+/* OLED display */
+&i2c0 {
+	status = "okay";
+	clock-frequency = <I2C_BITRATE_STANDARD>;
+	pinctrl-0 = <&i2c0_default>;
+	pinctrl-names = "default";
+	ssd1306_128x64: ssd1306@3c {
+		compatible = "solomon,ssd1306fb";
+		reg = <0x3c>;
+		width = <128>;
+		height = <64>;
+		segment-offset = <0>;
+		page-offset = <0>;
+		display-offset = <0>;
+		multiplex-ratio = <63>;
+		segment-remap;
+		com-invdir;
+		prechargep = <0x22>;
+ 		};
+	ds3231_rtc: ds3231@68 {
+		compatible = "maxim,ds3231";
+		reg = <0x68>;	
+		isw-gpios = <&gpio0 0 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;
+		};
+};
+
+
+&flash0 {
+	status = "okay";
+	partitions {
+		compatible = "fixed-partitions";
+		#address-cells = <1>;
+		#size-cells = <1>;
+	
+		reserved_tx_partition: partition@260000 {
+			label = "storage";
+			reg = <0x00260000 0x00001000>;
+		};
+	
+		reserved_rx_partition: partition@261000 {
+			label = "storage";
+			reg = <0x00261000 0x00001000>;
+		};
+
+	};
+};

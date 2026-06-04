@@ -1,0 +1,25 @@
+
+# description: TI ADS1220 24-bit ADC (SPI)
+# compatible: "ti,ads1220"
+# include: [spi-device.yaml]
+# properties:
+#   drdy-gpios:
+#     type: phandle-array
+#     required: false
+#     description: Optional DRDY (active low)
+#
+
+
+
+# SPDX-License-Identifier: Apache-2.0
+description: TI ADS1220 24-bit ADC (SPI)
+compatible: "ti,ads1220"
+
+# 핵심: 공통 SPI 슬레이브 속성(mode, duplex, spi-max-frequency 등)을 가져옵니다.
+include: [spi-device.yaml]
+
+properties:
+  drdy-gpios:
+    type: phandle-array
+    required: false
+    description: Optional DRDY pin (active low)

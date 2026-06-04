@@ -1,0 +1,59 @@
+# macOS
+.DS_Store
+
+# editors / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# python
+.venv/
+__pycache__/
+*.py[cod]
+
+# clangd / language server cache
+.cache/
+**/.cache/
+compile_commands.json
+
+# Zephyr / CMake build outputs
+build/
+build-*/
+/build*
+**/build/
+**/build-*/
+twister-out/
+/twister-out*
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+build.ninja
+.ninja_deps
+.ninja_log
+zephyr_modules.txt
+zephyr_settings.txt
+sysbuild_modules.txt
+build_info.yml
+build_info.yml.bak
+
+# generated docs
+/doc/_build*
+/doc/_build_doxygen/
+/doc/_build_sphinx/
+
+# KiCad local state / backups
+*.kicad_prl
+*.kicad_sch-bak
+*.kicad_pcb-bak
+*-backups/
+.history/
+fp-info-cache
+
+# generic backups
+*.bak
+*.orig
+
+# nested git metadata copied from external examples
+**/.git/
