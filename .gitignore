@@ -45,6 +45,7 @@ build_info.yml.bak
 
 # KiCad local state / backups
 *.kicad_prl
+*.lck
 *.kicad_sch-bak
 *.kicad_pcb-bak
 *-backups/
