@@ -1,49 +1,72 @@
-name: Build
+name: Firmware Build
 
 on:
   push:
+    branches: [main]
   pull_request:
-  schedule:
-    - cron: "0 0 * * *"
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
-  build:
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-22.04, macos-12, macos-14, windows-2022]
-    runs-on: ${{ matrix.os }}
+  firmware:
+    name: Build Dajilog firmware
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           path: example-application
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
-          python-version: 3.11
+          python-version: "3.11"
 
-      - name: Setup Zephyr project
+      - name: Set up Zephyr workspace
         uses: zephyrproject-rtos/action-zephyr-setup@v1
         with:
           app-path: example-application
           toolchains: arm-zephyr-eabi
 
-      - name: Build firmware
+      - name: Build dajilog_tech bring-up test
         working-directory: example-application
-        shell: bash
-        run: |
-          if [ "${{ runner.os }}" = "Windows" ]; then
-            EXTRA_TWISTER_FLAGS="--short-build-path -O/tmp/twister-out"
-          fi
-          west twister -T app -v --inline-logs --integration $EXTRA_TWISTER_FLAGS
+        run: >-
+          west build -p always -b dajilog_tech app/dajilog_tech_test
+          -d build-ci/dajilog_tech_test
 
-      - name: Twister Tests
+      - name: Build RS-485 to SDI-12 bridge
         working-directory: example-application
-        shell: bash
-        run: |
-          if [ "${{ runner.os }}" = "Windows" ]; then
-            EXTRA_TWISTER_FLAGS="--short-build-path -O/tmp/twister-out"
-          fi
-          west twister -T tests -v --inline-logs --integration $EXTRA_TWISTER_FLAGS
+        run: >-
+          west build -p always -b dajilog_tech app/dajilog_485_to_sdi12
+          -d build-ci/dajilog_485_to_sdi12
+          -- -DEXTRA_CONF_FILE=profiles/sensor_default.conf
+
+      - name: Build Dajilog scale
+        working-directory: example-application
+        run: >-
+          west build -p always -b dajilog_tech app/dajilog_scale
+          -d build-ci/dajilog_scale
+
+      - name: Build AGMO TIC
+        working-directory: example-application
+        run: >-
+          west build -p always -b agmo_tic app/agmo_tic
+          -d build-ci/agmo_tic
+
+      - name: Run custom library test
+        working-directory: example-application
+        run: west twister -T tests/lib/custom -v --inline-logs --integration
+
+      - name: Upload firmware artifacts
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: dajilog-firmware-${{ github.sha }}
+          path: |
+            example-application/build-ci/**/zephyr/zephyr.bin
+            example-application/build-ci/**/zephyr/zephyr.hex
+            example-application/build-ci/**/zephyr/zephyr.elf
+          if-no-files-found: error

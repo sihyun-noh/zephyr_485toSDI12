@@ -3,10 +3,18 @@
 
 name: Documentation
 
-on: [push, pull_request]
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
 
 env:
   DOXYGEN_VERSION: 1.9.6
+
+permissions:
+  contents: read
 
 jobs:
   build:
@@ -19,43 +27,47 @@ jobs:
         run: |
           wget --no-verbose "https://github.com/doxygen/doxygen/releases/download/Release_${DOXYGEN_VERSION//./_}/doxygen-${DOXYGEN_VERSION}.linux.bin.tar.gz"
           tar xf doxygen-${DOXYGEN_VERSION}.linux.bin.tar.gz
-          echo "${PWD}/doxygen-${DOXYGEN_VERSION}/bin" >> $GITHUB_PATH
+          echo "${PWD}/doxygen-${DOXYGEN_VERSION}/bin" >> "$GITHUB_PATH"
           pip install -r doc/requirements.txt
 
-      - name: Build
+      - name: Build documentation
         run: |
           cd doc
           doxygen
-
           SPHINXOPTS="-W" make html
-
           mkdir deploy
           mv _build_doxygen/html deploy/doxygen
           mv _build_sphinx/html/* deploy
 
-      - name: Setup pages
-        if: github.event_name != 'pull_request'
-        uses: actions/configure-pages@v4
-
-      - name: Upload pages artifact
-        if: github.event_name != 'pull_request'
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: doc/deploy
-
-      - name: Upload artifacts
+      - name: Upload pull request artifact
         if: github.event_name == 'pull_request'
         uses: actions/upload-artifact@v4
+        with:
+          name: documentation-${{ github.sha }}
+          path: doc/deploy
+          if-no-files-found: error
+
+      - name: Configure GitHub Pages
+        if: github.event_name == 'push'
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        if: github.event_name == 'push'
+        uses: actions/upload-pages-artifact@v4
         with:
           path: doc/deploy
 
   deploy:
+    if: github.event_name == 'push'
     runs-on: ubuntu-22.04
     needs: build
-    if: github.event_name != 'pull_request'
     permissions:
       pages: write
       id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Deploy to GitHub Pages
+        id: deployment
         uses: actions/deploy-pages@v4
