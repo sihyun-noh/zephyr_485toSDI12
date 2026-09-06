@@ -1,0 +1,9 @@
+sample:
+  name: AGMO_TIC bring-up test
+tests:
+  app.agmo_tic:
+    platform_allow: agmo_tic
+    tags:
+      - gpio
+      - usb
+      - can

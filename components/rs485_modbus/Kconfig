@@ -1,0 +1,53 @@
+# SPDX-License-Identifier: Apache-2.0
+
+menuconfig DAJILOG_COMPONENT_RS485_MODBUS
+	bool "RS-485 Modbus RTU component"
+	default y
+	depends on UART_INTERRUPT_DRIVEN || SERIAL
+	depends on GPIO
+	help
+	  Enable the RS-485 Modbus RTU helper used by the Dajilog bring-up
+	  application.
+
+if DAJILOG_COMPONENT_RS485_MODBUS
+
+config DAJILOG_RS485_MODBUS_THREAD_STACK_SIZE
+	int "RS-485 Modbus thread stack size"
+	default 2048
+
+config DAJILOG_RS485_MODBUS_THREAD_PRIORITY
+	int "RS-485 Modbus thread priority"
+	default 4
+
+config DAJILOG_RS485_MODBUS_MSGQ_DEPTH
+	int "RS-485 Modbus message queue depth"
+	default 4
+
+config DAJILOG_RS485_MODBUS_SENSOR_ADDR
+	int "Default Modbus slave address"
+	default 1
+	range 1 247
+
+config DAJILOG_RS485_MODBUS_START_REG
+	int "Default Modbus input register start address"
+	default 0
+	range 0 65535
+
+config DAJILOG_RS485_MODBUS_REG_COUNT
+	int "Default Modbus input register count"
+	default 2
+	range 1 8
+
+config DAJILOG_RS485_MODBUS_RESPONSE_TIMEOUT_MS
+	int "Modbus response timeout in milliseconds"
+	default 700
+
+config DAJILOG_RS485_MODBUS_TX_TURNAROUND_US
+	int "RS-485 TX-to-RX turnaround delay in microseconds"
+	default 6000
+
+config DAJILOG_RS485_MODBUS_POLL_PERIOD_MS
+	int "Application poll request period in milliseconds"
+	default 1000
+
+endif # DAJILOG_COMPONENT_RS485_MODBUS

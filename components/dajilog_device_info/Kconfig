@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: Apache-2.0
+
+menuconfig DAJILOG_COMPONENT_DEVICE_INFO
+	bool "Dajilog common device information component"
+	default y
+	depends on CAN
+	depends on DAJILOG_COMPONENT_DEVICE_PROFILE
+	help
+	  Encode and validate the common Dajilog Device Info CAN protocol.

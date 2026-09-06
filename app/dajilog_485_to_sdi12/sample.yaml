@@ -1,0 +1,10 @@
+sample:
+  name: dajilog 485 to SDI-12 bridge
+tests:
+  app.dajilog_485_to_sdi12:
+    platform_allow: dajilog_tech
+    tags:
+      - rs485
+      - modbus
+      - sdi12
+      - usb

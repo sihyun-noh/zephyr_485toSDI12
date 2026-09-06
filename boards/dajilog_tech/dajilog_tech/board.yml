@@ -1,0 +1,5 @@
+board:
+  name: dajilog_tech
+  vendor: dajilog_tech
+  socs:
+    - name: stm32g431xx

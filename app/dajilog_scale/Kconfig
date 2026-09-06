@@ -1,0 +1,133 @@
+# Copyright (c) 2026
+# SPDX-License-Identifier: Apache-2.0
+
+source "Kconfig.zephyr"
+
+menuconfig DAJILOG_SCALE_APP
+	bool "Dajilog scale application"
+	default y
+	depends on DAJILOG_COMPONENT_ADS1232
+	depends on DAJILOG_COMPONENT_CAN_BUS
+	depends on DAJILOG_COMPONENT_EEPROM_STORE
+	depends on DAJILOG_COMPONENT_DEVICE_PROFILE
+	depends on DAJILOG_COMPONENT_DEVICE_INFO
+	depends on DAJILOG_COMPONENT_DEVICE_PROVISIONING
+
+if DAJILOG_SCALE_APP
+
+config SCALE_SAMPLE_PERIOD_MS
+	int "ADS1232 sample period in milliseconds"
+	default 100
+	range 50 1000
+
+config SCALE_FILTER_WINDOW_SAMPLES
+	int "Moving-average and stability window sample count"
+	default 10
+	range 2 32
+
+config SCALE_STABLE_P2P_RAW_LIMIT
+	int "Stable maximum peak-to-peak raw ADC count"
+	default 200
+	range 1 100000
+
+config SCALE_RAW_DIAGNOSTIC_MODE
+	bool "Bypass filtering for raw ADC diagnosis"
+	default n
+	help
+	  Use each instantaneous ADS1232 sample directly for the displayed,
+	  transmitted, and calculated value. Stability is forced true and P2P is
+	  reported as zero. Use this only to investigate the analog front end; do
+	  not perform or save calibration while it is enabled.
+
+config SCALE_SERVICE_THREAD_STACK_SIZE
+	int "Scale service thread stack size"
+	default 2048
+
+config SCALE_SERVICE_THREAD_PRIORITY
+	int "Scale service thread priority"
+	default 5
+
+config SCALE_SERVICE_MSGQ_DEPTH
+	int "Scale service command queue depth"
+	default 8
+	range 2 32
+
+config SCALE_CAN_THREAD_STACK_SIZE
+	int "Scale CAN service thread stack size"
+	default 2048
+
+config SCALE_CAN_THREAD_PRIORITY
+	int "Scale CAN service thread priority"
+	default 6
+
+config SCALE_CAN_MEASUREMENT_PERIOD_MS
+	int "CAN measurement publish period in milliseconds"
+	default 500
+	range 100 5000
+
+config SCALE_CAN_DIAGNOSTIC
+	bool "Print scale CAN RX/TX diagnostic frames"
+	default y
+	help
+	  Print accepted standard command frames on ID 0x320 and periodic
+	  measurement transmit requests on ID 0x322. Disable after CAN physical
+	  layer and protocol integration are verified.
+
+config SCALE_CAN_ENABLE
+	bool "Enable CAN bus and scale CAN service"
+	default y
+	help
+	  Initialize the FDCAN peripheral and start the scale CAN RX/TX service.
+	  Disable this while isolating ADS1232, load-cell, or analog-front-end
+	  behavior from CAN physical-layer activity.
+
+config SCALE_LOAD_CALIBRATION_AT_BOOT
+	bool "Load calibration record from EEPROM at boot"
+	default n
+	help
+	  Keep disabled until EEPROM hardware bring-up and USB CDC startup are
+	  verified together. Saving through CAL_SAVE remains explicit.
+
+config SCALE_DEVICE_PROFILE_ALLOW_DEVELOPMENT
+	bool "Allow development Device Profile fallback"
+	default y
+	help
+	  Use the Kconfig node ID and serial when EEPROM has no valid Device
+	  Profile. Production units must use a persistent provisioned profile.
+
+config SCALE_DEVICE_NODE_ID
+	int "Development CAN node ID"
+	default 12
+	range 1 127
+
+config SCALE_DEVICE_SERIAL_NUMBER
+	int "Development device serial number"
+	default 100001
+	range 1 2147483647
+
+config SCALE_DEVICE_HW_REVISION
+	int "Device hardware revision"
+	default 1
+	range 0 255
+
+config SCALE_DEVICE_FW_MAJOR
+	int "Firmware major version"
+	default 0
+	range 0 255
+
+config SCALE_DEVICE_FW_MINOR
+	int "Firmware minor version"
+	default 1
+	range 0 255
+
+config SCALE_DEVICE_FW_PATCH
+	int "Firmware patch version"
+	default 0
+	range 0 255
+
+config SCALE_DEVICE_FW_BUILD
+	int "Firmware build revision"
+	default 1
+	range 0 255
+
+endif # DAJILOG_SCALE_APP

@@ -1,0 +1,26 @@
+# SPDX-License-Identifier: Apache-2.0
+
+menuconfig DAJILOG_COMPONENT_SDI12_SLAVE
+	bool "SDI-12 slave component"
+	default y
+	depends on GPIO
+
+if DAJILOG_COMPONENT_SDI12_SLAVE
+
+config DAJILOG_SDI12_THREAD_STACK_SIZE
+	int "SDI-12 slave thread stack size"
+	default 2048
+
+config DAJILOG_SDI12_THREAD_PRIORITY
+	int "SDI-12 slave thread priority"
+	default 2
+
+config DAJILOG_SDI12_MSGQ_DEPTH
+	int "SDI-12 slave message queue depth"
+	default 8
+
+config DAJILOG_SDI12_RX_INVERTED
+	bool "SDI-12 RX GPIO is inverted"
+	default n
+
+endif # DAJILOG_COMPONENT_SDI12_SLAVE

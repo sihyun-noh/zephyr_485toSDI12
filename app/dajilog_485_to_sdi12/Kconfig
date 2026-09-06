@@ -1,0 +1,202 @@
+# Copyright (c) 2026
+# SPDX-License-Identifier: Apache-2.0
+
+source "Kconfig.zephyr"
+
+menuconfig BRIDGE_485_TO_SDI12
+	bool "Dajilog 485 to SDI-12 bridge app"
+	default y
+	depends on DAJILOG_COMPONENT_RS485_MODBUS
+	depends on DAJILOG_COMPONENT_SDI12_SLAVE
+
+if BRIDGE_485_TO_SDI12
+
+config BRIDGE_APP_MSGQ_DEPTH
+	int "Bridge app message queue depth"
+	default 16
+	range 4 64
+
+config BRIDGE_FSM_POLL_TIMEOUT_MS
+	int "FSM message wait timeout"
+	default 500
+	range 10 10000
+
+config BRIDGE_MONITOR_THREAD_STACK_SIZE
+	int "Monitor thread stack size"
+	default 1536
+
+config BRIDGE_MONITOR_THREAD_PRIORITY
+	int "Monitor thread priority"
+	default 7
+
+config BRIDGE_MONITOR_PERIOD_MS
+	int "Monitor log period"
+	default 2000
+	range 0 60000
+
+config BRIDGE_DO_STARTUP_TEST
+	bool "Run one-shot DO output test at boot"
+	default n
+	help
+	  Toggle the open-drain DO outputs once during boot so the board bring-up
+	  can confirm GPIO_DT_SPEC_GET() and gpio_pin_set_dt() operation.
+
+config BRIDGE_DO_STARTUP_TEST_ON_MS
+	int "DO startup test active time"
+	default 300
+	range 10 5000
+	depends on BRIDGE_DO_STARTUP_TEST
+
+config BRIDGE_PB34_ONLY_TEST
+	bool "Run PB3/PB4 only output test"
+	default y
+	help
+	  Stop the normal bridge app and toggle only PB3/PB4 once per second. Use
+	  this only during board bring-up to isolate the DO signals.
+
+config BRIDGE_PB34_ONLY_TEST_PERIOD_MS
+	int "PB3/PB4 only test period"
+	default 1000
+	range 10 60000
+
+config BRIDGE_DISABLE_STM32G4_UCPD_DEAD_BATTERY
+	bool "Disable STM32G4 UCPD dead-battery pull-down"
+	default y
+	help
+	  Disable the hidden UCPD dead-battery pull-down on STM32G4 PB4/PA15
+	  during early boot. Keep this enabled when PB4 or PA15 is used as a
+	  normal GPIO instead of USB-C Power Delivery CC pins.
+
+config BRIDGE_RS485_TASK_THREAD_STACK_SIZE
+	int "RS485 task thread stack size"
+	default 1536
+
+config BRIDGE_RS485_TASK_THREAD_PRIORITY
+	int "RS485 task thread priority"
+	default 5
+
+config BRIDGE_SDI12_TASK_THREAD_STACK_SIZE
+	int "SDI-12 task thread stack size"
+	default 1536
+
+config BRIDGE_SDI12_TASK_THREAD_PRIORITY
+	int "SDI-12 task thread priority"
+	default 5
+
+menu "RS485 Modbus profile"
+
+config BRIDGE_RS485_BAUDRATE
+	int "RS485 baudrate"
+	default 4800
+
+choice BRIDGE_RS485_PARITY
+	prompt "RS485 UART parity"
+	default BRIDGE_RS485_PARITY_NONE
+
+config BRIDGE_RS485_PARITY_NONE
+	bool "None"
+
+config BRIDGE_RS485_PARITY_EVEN
+	bool "Even"
+
+config BRIDGE_RS485_PARITY_ODD
+	bool "Odd"
+
+endchoice
+
+config BRIDGE_RS485_SLAVE_ADDR
+	int "Modbus slave address"
+	default 1
+	range 1 247
+
+config BRIDGE_RS485_FUNCTION_CODE
+	int "Modbus function code"
+	default 4
+	range 3 4
+	help
+	  3 = Read Holding Registers.
+	  4 = Read Input Registers.
+	  The current rs485_modbus component supports FC04 first; FC03 is a
+	  profile placeholder for the next component extension.
+
+config BRIDGE_RS485_START_REG
+	int "Modbus start register"
+	default 0
+	range 0 65535
+
+config BRIDGE_RS485_REG_COUNT
+	int "Modbus register count"
+	default 2
+	range 1 8
+
+config BRIDGE_RS485_POLL_PERIOD_MS
+	int "Modbus poll period"
+	default 1000
+	range 100 60000
+
+config BRIDGE_RS485_RESPONSE_TIMEOUT_MS
+	int "Modbus response timeout"
+	default 700
+	range 10 10000
+
+config BRIDGE_RS485_TX_TURNAROUND_US
+	int "RS485 TX-to-RX turnaround delay"
+	default 6000
+	range 0 100000
+
+endmenu
+
+menu "Bridge value format"
+
+config BRIDGE_VALUE0_SCALE_DIVISOR
+	int "Value 0 scale divisor"
+	default 100
+	range 1 1000000
+
+config BRIDGE_VALUE1_SCALE_DIVISOR
+	int "Value 1 scale divisor"
+	default 100
+	range 1 1000000
+
+choice BRIDGE_RESPONSE_FORMAT
+	prompt "SDI-12 D0 response value format"
+	default BRIDGE_RESPONSE_FORMAT_X100
+
+config BRIDGE_RESPONSE_FORMAT_RAW
+	bool "Raw register values"
+
+config BRIDGE_RESPONSE_FORMAT_X10
+	bool "Register divided by 10"
+
+config BRIDGE_RESPONSE_FORMAT_X100
+	bool "Register divided by 100"
+
+endchoice
+
+endmenu
+
+menu "SDI-12 profile"
+
+config BRIDGE_SDI12_ADDRESS
+	string "SDI-12 address"
+	default "0"
+
+config BRIDGE_SDI12_VENDOR
+	string "SDI-12 vendor"
+	default "DAJILOG"
+
+config BRIDGE_SDI12_MODEL
+	string "SDI-12 model"
+	default "485SDI12"
+
+config BRIDGE_SDI12_VERSION
+	string "SDI-12 version"
+	default "01"
+
+config BRIDGE_SDI12_SERIAL
+	string "SDI-12 serial"
+	default "000001"
+
+endmenu
+
+endif # BRIDGE_485_TO_SDI12

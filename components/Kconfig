@@ -1,0 +1,16 @@
+# SPDX-License-Identifier: Apache-2.0
+
+menu "Dajilog components"
+
+rsource "ads1232/Kconfig"
+rsource "display_oled/Kconfig"
+rsource "rs485_modbus/Kconfig"
+rsource "can_bus/Kconfig"
+rsource "sbus/Kconfig"
+rsource "sdi12_slave/Kconfig"
+rsource "eeprom_store/Kconfig"
+rsource "dajilog_device_profile/Kconfig"
+rsource "dajilog_device_info/Kconfig"
+rsource "dajilog_device_provisioning/Kconfig"
+
+endmenu

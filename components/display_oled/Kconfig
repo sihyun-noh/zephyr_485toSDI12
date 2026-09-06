@@ -1,0 +1,35 @@
+# SPDX-License-Identifier: Apache-2.0
+
+menuconfig DAJILOG_COMPONENT_OLED_DISPLAY
+	bool "SSD1309 OLED display component"
+	default y
+	depends on DISPLAY && CHARACTER_FRAMEBUFFER
+	help
+	  Enable the SSD1309/SSD1306-compatible OLED helper used by the
+	  Dajilog bring-up application.
+
+if DAJILOG_COMPONENT_OLED_DISPLAY
+
+config DAJILOG_OLED_SCAN_I2C_ON_INIT
+	bool "Scan I2C bus before OLED init"
+	default y
+	depends on I2C
+	help
+	  Print detected I2C slave addresses during display init. This is useful
+	  during hardware bring-up and can be disabled later.
+
+config DAJILOG_OLED_I2C_SPEED_HZ
+	int "Documented OLED I2C bus speed"
+	default 400000
+	help
+	  Informational value printed during bring-up. The real bus speed is set
+	  in devicetree using clock-frequency.
+
+config DAJILOG_OLED_SCAN_PERIOD_MS
+	int "Periodic I2C scan interval in milliseconds"
+	default 0
+	help
+	  Set to 0 to disable periodic scans. During hardware bring-up, use a
+	  value such as 1000 to print the I2C scan result repeatedly.
+
+endif # DAJILOG_COMPONENT_OLED_DISPLAY

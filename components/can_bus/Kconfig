@@ -1,0 +1,44 @@
+# SPDX-License-Identifier: Apache-2.0
+
+menuconfig DAJILOG_COMPONENT_CAN_BUS
+	bool "CAN bus component"
+	default y
+	depends on CAN
+
+if DAJILOG_COMPONENT_CAN_BUS
+
+config DAJILOG_CAN_THREAD_STACK_SIZE
+	int "CAN component thread stack size"
+	default 2048
+
+config DAJILOG_CAN_THREAD_PRIORITY
+	int "CAN component thread priority"
+	default 4
+
+config DAJILOG_CAN_MSGQ_DEPTH
+	int "CAN component message queue depth"
+	default 4
+
+config DAJILOG_CAN_RX_MSGQ_DEPTH
+	int "CAN received frame queue depth"
+	default 8
+	help
+	  Queue received frames for protocol services. Frames are dropped and
+	  counted when this queue is full.
+
+config DAJILOG_CAN_TX_TEST_ID
+	hex "Default CAN test transmit ID"
+	default 0x123
+
+config DAJILOG_CAN_TX_PERIOD_MS
+	int "Default CAN test transmit request period"
+	default 1000
+
+config DAJILOG_CAN_VERBOSE
+	bool "Print every CAN event to the console"
+	default y
+	help
+	  Enable verbose RX, TX and initialization messages. Disable this when
+	  an interactive shell shares the console with the CAN component.
+
+endif # DAJILOG_COMPONENT_CAN_BUS

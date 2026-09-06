@@ -1,0 +1,28 @@
+# SPDX-License-Identifier: Apache-2.0
+
+menuconfig DAJILOG_COMPONENT_ADS1232
+	bool "ADS1232 loadcell ADC component"
+	default y
+	depends on GPIO
+	help
+	  Enable the ADS1232 GPIO bit-bang loadcell ADC component.
+
+if DAJILOG_COMPONENT_ADS1232
+
+config DAJILOG_ADS1232_READ_PERIOD_MS
+	int "ADS1232 application read period in milliseconds"
+	default 200
+
+config DAJILOG_ADS1232_DRDY_TIMEOUT_MS
+	int "ADS1232 DRDY wait timeout in milliseconds"
+	default 150
+
+config DAJILOG_ADS1232_SCLK_HALF_PERIOD_US
+	int "ADS1232 SCLK half period in microseconds"
+	default 2
+
+config DAJILOG_ADS1232_STARTUP_DELAY_MS
+	int "ADS1232 startup delay after power up"
+	default 200
+
+endif

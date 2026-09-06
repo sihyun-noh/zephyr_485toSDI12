@@ -1,0 +1,22 @@
+# SPDX-License-Identifier: Apache-2.0
+
+menuconfig DAJILOG_COMPONENT_SBUS
+	bool "SBUS receiver component"
+	default y
+	depends on SERIAL
+
+if DAJILOG_COMPONENT_SBUS
+
+config DAJILOG_SBUS_THREAD_STACK_SIZE
+	int "SBUS thread stack size"
+	default 2048
+
+config DAJILOG_SBUS_THREAD_PRIORITY
+	int "SBUS thread priority"
+	default 3
+
+config DAJILOG_SBUS_LOG_PERIOD
+	int "SBUS log every N frames"
+	default 20
+
+endif # DAJILOG_COMPONENT_SBUS

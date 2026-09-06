@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+
+menuconfig DAJILOG_COMPONENT_DEVICE_PROVISIONING
+	bool "Dajilog USB shell provisioning component"
+	default y
+	depends on SHELL
+	depends on DAJILOG_COMPONENT_DEVICE_INFO
+	depends on DAJILOG_COMPONENT_DEVICE_PROFILE
+	help
+	  Provide the common device/profile/node-ID shell commands for local
+	  commissioning over the configured Zephyr shell backend.

@@ -1,0 +1,9 @@
+sample:
+  name: dajilog_tech_V0.1 bring-up test
+tests:
+  app.dajilog_tech_test:
+    platform_allow: dajilog_tech
+    tags:
+      - gpio
+      - usb
+      - can

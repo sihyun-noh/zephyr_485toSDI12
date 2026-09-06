@@ -1,0 +1,16 @@
+identifier: agmo_tic
+name: agmo_tic
+vendor: agmo_tic
+type: mcu
+arch: arm
+ram: 32
+flash: 128
+toolchain:
+  - zephyr
+  - gnuarmemb
+  - xtools
+supported:
+  - can
+  - gpio
+  - pinctrl
+  - usb_device

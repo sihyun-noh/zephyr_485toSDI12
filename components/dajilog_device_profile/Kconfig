@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: Apache-2.0
+
+menuconfig DAJILOG_COMPONENT_DEVICE_PROFILE
+	bool "Dajilog device profile component"
+	default y
+	depends on DAJILOG_COMPONENT_EEPROM_STORE
+	select CRC
+	help
+	  Store and validate the device-specific network profile independently
+	  from product calibration or measurement records.

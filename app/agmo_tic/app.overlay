@@ -1,0 +1,56 @@
+/ {
+	chosen {
+		zephyr,console = &cdc_acm_uart0;
+		zephyr,shell-uart = &cdc_acm_uart0;
+		zephyr,display = &ssd1309;
+	};
+
+	zephyr,user {
+		restart-led-gpios = <&gpiob 0 GPIO_ACTIVE_LOW>;
+		acc-led-gpios = <&gpiob 1 GPIO_ACTIVE_LOW>;
+		manual-led-gpios = <&gpiob 2 GPIO_ACTIVE_LOW>;
+		key-led-gpios = <&gpioa 7 GPIO_ACTIVE_LOW>;
+		do-relay1-gpios = <&gpiob 11 GPIO_ACTIVE_HIGH>;
+		do-relay2-gpios = <&gpiob 12 GPIO_ACTIVE_HIGH>;
+		do-relay3-gpios = <&gpiob 13 GPIO_ACTIVE_HIGH>;
+		do-relay4-gpios = <&gpiob 14 GPIO_ACTIVE_HIGH>;
+		di1-gpios = <&gpiob 15 GPIO_ACTIVE_LOW>;
+		di2-gpios = <&gpioa 8 GPIO_ACTIVE_LOW>;
+		di3-gpios = <&gpioa 9 GPIO_ACTIVE_LOW>;
+	};
+};
+
+&usart1 {
+	status = "disabled";
+};
+
+&usart2 {
+	status = "disabled";
+};
+
+&i2c1 {
+	pinctrl-0 = <&i2c1_scl_pa15 &i2c1_sda_pb7>;
+	pinctrl-names = "default";
+	clock-frequency = <400000>;
+	status = "okay";
+
+	ssd1309: ssd1309@3c {
+		compatible = "solomon,ssd1306fb";
+		reg = <0x3c>;
+		width = <128>;
+		height = <64>;
+		segment-offset = <0>;
+		page-offset = <0>;
+		display-offset = <0>;
+		multiplex-ratio = <63>;
+		segment-remap;
+		com-invdir;
+		prechargep = <0x22>;
+	};
+};
+
+&zephyr_udc0 {
+	cdc_acm_uart0: cdc_acm_uart0 {
+		compatible = "zephyr,cdc-acm-uart";
+	};
+};

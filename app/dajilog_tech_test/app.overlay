@@ -1,0 +1,58 @@
+/ {
+	chosen {
+		zephyr,console = &cdc_acm_uart0;
+		zephyr,shell-uart = &cdc_acm_uart0;
+		zephyr,display = &ssd1309;
+	};
+
+	zephyr,user {
+		sdi12-tx-gpios = <&gpiob 10 GPIO_ACTIVE_HIGH>;
+		sdi12-rx-gpios = <&gpiob 11 GPIO_ACTIVE_HIGH>;
+		sdi12-oe-gpios = <&gpiob 12 GPIO_ACTIVE_LOW>;
+		rs485-en-gpios = <&gpioa 8 GPIO_ACTIVE_HIGH>;
+		ads1232-sclk-gpios = <&gpioa 5 GPIO_ACTIVE_HIGH>;
+		ads1232-dout-gpios = <&gpioa 6 GPIO_ACTIVE_HIGH>;
+		ads1232-pwdn-gpios = <&gpioa 7 GPIO_ACTIVE_HIGH>;
+	};
+};
+
+&usart1 {
+	pinctrl-0 = <&usart1_tx_pa9 &usart1_rx_pa10>;
+	pinctrl-names = "default";
+	current-speed = <4800>;
+	status = "okay";
+};
+
+&usart2 {
+	pinctrl-0 = <&usart2_rx_pa3>;
+	pinctrl-names = "default";
+	current-speed = <100000>;
+	status = "okay";
+};
+
+&i2c1 {
+	pinctrl-0 = <&i2c1_scl_pa15 &i2c1_sda_pb7>;
+	pinctrl-names = "default";
+	clock-frequency = <400000>;
+	status = "okay";
+
+	ssd1309: ssd1309@3c {
+		compatible = "solomon,ssd1306fb";
+		reg = <0x3c>;
+		width = <128>;
+		height = <64>;
+		segment-offset = <0>;
+		page-offset = <0>;
+		display-offset = <0>;
+		multiplex-ratio = <63>;
+		segment-remap;
+		com-invdir;
+		prechargep = <0x22>;
+	};
+};
+
+&zephyr_udc0 {
+	cdc_acm_uart0: cdc_acm_uart0 {
+		compatible = "zephyr,cdc-acm-uart";
+	};
+};

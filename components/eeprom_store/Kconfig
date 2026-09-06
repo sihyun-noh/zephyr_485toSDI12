@@ -1,0 +1,28 @@
+# SPDX-License-Identifier: Apache-2.0
+
+menuconfig DAJILOG_COMPONENT_EEPROM_STORE
+	bool "AT24 EEPROM storage component"
+	default y
+	depends on EEPROM
+	help
+	  Enable the common EEPROM read/write component. Board devicetree must
+	  provide an EEPROM node labelled eeprom0.
+
+if DAJILOG_COMPONENT_EEPROM_STORE
+
+config DAJILOG_EEPROM_BRINGUP_TEST
+	bool "Run EEPROM read/write test at boot"
+	default n
+	help
+	  Write a small test pattern to EEPROM and read it back once at boot.
+	  Keep this disabled by default while USB CDC startup is being verified.
+
+config DAJILOG_EEPROM_TEST_OFFSET
+	hex "EEPROM test offset"
+	default 0x0100
+	depends on DAJILOG_EEPROM_BRINGUP_TEST
+	help
+	  Offset used by the one-shot EEPROM bring-up test. Keep it away from
+	  the future application settings layout.
+
+endif # DAJILOG_COMPONENT_EEPROM_STORE
