@@ -49,6 +49,7 @@ jobs:
         run: >-
           west build -p always -b dajilog_tech app/dajilog_scale
           -d build-ci/dajilog_scale
+          -- -DEXTRA_CONF_FILE=profiles/scale_default.conf
 
       - name: Build AGMO TIC
         working-directory: example-application

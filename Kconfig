@@ -7,4 +7,7 @@
 
 rsource "drivers/Kconfig"
 rsource "lib/Kconfig"
+
+menu "Dajilog"
 rsource "components/Kconfig"
+endmenu

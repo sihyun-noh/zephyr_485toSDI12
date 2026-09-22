@@ -8,21 +8,21 @@
 #include "app_msg.h"
 
 enum app_state {
-	APP_STATE_BOOT,
-	APP_STATE_INIT_HW,
-	APP_STATE_WAIT_FIRST_SAMPLE,
-	APP_STATE_READY,
-	APP_STATE_ACTIVE_SESSION,
-	APP_STATE_SENSOR_ERROR,
-	APP_STATE_FATAL_ERROR,
+  APP_STATE_BOOT,
+  APP_STATE_INIT_HW,
+  APP_STATE_WAIT_FIRST_SAMPLE,
+  APP_STATE_READY,
+  APP_STATE_ACTIVE_SESSION,
+  APP_STATE_SENSOR_ERROR,
+  APP_STATE_FATAL_ERROR,
 };
 
 struct app_fsm {
-	enum app_state state;
-	enum app_state previous_state;
-	int64_t entered_at_ms;
-	uint32_t event_count;
-	int last_error;
+  enum app_state state;
+  enum app_state previous_state;
+  int64_t entered_at_ms;
+  uint32_t event_count;
+  int last_error;
 };
 
 void app_fsm_init(struct app_fsm *fsm);

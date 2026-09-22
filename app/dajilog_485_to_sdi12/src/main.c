@@ -154,9 +154,6 @@ int main(void) {
 
   printk("dajilog_485_totsdi12 app skeleton\r\n");
   app_print_profile();
-  (void)eeprom_store_init();
-  (void)eeprom_store_bringup_test_once();
-
   pb34_only_test_forever();
 
   ret = do_outputs_init();
@@ -171,6 +168,16 @@ int main(void) {
     printk("app_context_init failed ret=%d\r\n", ret);
     return 0;
   }
+
+  if (IS_ENABLED(CONFIG_BRIDGE_DEVICE_SERVICES)) {
+    ret = app_device_services_init(&app);
+    if (ret != 0) {
+      printk("app_device_services_init failed ret=%d\r\n", ret);
+      return 0;
+    }
+  }
+
+  (void)eeprom_store_bringup_test_once();
 
   (void)app_msg_publish(&app.app_msgq, &boot_msg);
 
@@ -196,9 +203,14 @@ int main(void) {
 
   while (1) {
     struct app_msg msg;
+    struct can_frame can_frame;
 
-    ret = k_msgq_get(&app.app_msgq, &msg,
-                     K_MSEC(CONFIG_BRIDGE_FSM_POLL_TIMEOUT_MS));
+    if (IS_ENABLED(CONFIG_BRIDGE_CAN_ENABLE) &&
+        can_bus_receive(&app.can, &can_frame, K_NO_WAIT) == 0) {
+      bridge_can_service_process(&app.can_service, &can_frame);
+    }
+
+    ret = k_msgq_get(&app.app_msgq, &msg, K_MSEC(20));
     if (ret == 0) {
       printk("APP event=%s\r\n", app_msg_type_name(msg.type));
       app_fsm_handle_msg(&app.fsm, &msg);

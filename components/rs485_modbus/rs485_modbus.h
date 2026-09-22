@@ -11,14 +11,17 @@
 #include <zephyr/kernel.h>
 
 #define RS485_MODBUS_MAX_REGS 8
+#define RS485_MODBUS_FC_READ_HOLDING_REGS 3
+#define RS485_MODBUS_FC_READ_INPUT_REGS 4
 
 enum rs485_modbus_msg_type {
-	RS485_MODBUS_MSG_READ_INPUT_REGS,
+	RS485_MODBUS_MSG_READ_REGS,
 };
 
 struct rs485_modbus_msg {
 	enum rs485_modbus_msg_type type;
 	uint8_t slave_addr;
+	uint8_t function_code;
 	uint16_t start_reg;
 	uint16_t reg_count;
 };
@@ -27,6 +30,7 @@ struct rs485_modbus_config {
 	const struct device *uart;
 	struct gpio_dt_spec de;
 	uint8_t default_slave_addr;
+	uint8_t default_function_code;
 	uint16_t default_start_reg;
 	uint16_t default_reg_count;
 	uint32_t response_timeout_ms;
@@ -39,6 +43,7 @@ struct rs485_modbus_state {
 	bool value_valid;
 	int last_error;
 	uint8_t latest_slave_addr;
+	uint8_t latest_function_code;
 	uint16_t latest_start_reg;
 	uint16_t latest_reg_count;
 	uint16_t regs[RS485_MODBUS_MAX_REGS];
@@ -60,8 +65,9 @@ struct rs485_modbus {
 int rs485_modbus_init(struct rs485_modbus *ctx);
 int rs485_modbus_start(struct rs485_modbus *ctx);
 int rs485_modbus_request_read(struct rs485_modbus *ctx);
-int rs485_modbus_request_read_regs(struct rs485_modbus *ctx, uint8_t slave_addr,
-				   uint16_t start_reg, uint16_t reg_count);
+int rs485_modbus_request_read_regs(struct rs485_modbus *ctx, uint8_t function_code,
+				   uint8_t slave_addr, uint16_t start_reg,
+				   uint16_t reg_count);
 void rs485_modbus_state_get(const struct rs485_modbus *ctx,
 			    struct rs485_modbus_state *out);
 

@@ -49,7 +49,7 @@ config BRIDGE_DO_STARTUP_TEST_ON_MS
 
 config BRIDGE_PB34_ONLY_TEST
 	bool "Run PB3/PB4 only output test"
-	default y
+	default n
 	help
 	  Stop the normal bridge app and toggle only PB3/PB4 once per second. Use
 	  this only during board bring-up to isolate the DO signals.
@@ -66,6 +66,76 @@ config BRIDGE_DISABLE_STM32G4_UCPD_DEAD_BATTERY
 	  Disable the hidden UCPD dead-battery pull-down on STM32G4 PB4/PA15
 	  during early boot. Keep this enabled when PB4 or PA15 is used as a
 	  normal GPIO instead of USB-C Power Delivery CC pins.
+
+menu "Dajilog device services"
+
+menuconfig BRIDGE_DEVICE_SERVICES
+	bool "Enable common Device Identity services"
+	default y
+	depends on DAJILOG_COMPONENT_CAN_BUS
+	depends on DAJILOG_COMPONENT_DEVICE_PROFILE
+	depends on DAJILOG_COMPONENT_DEVICE_INFO
+	depends on DAJILOG_COMPONENT_DEVICE_PROVISIONING
+	help
+	  Enable the common Dajilog Device Profile, CAN Device Info, and USB CDC
+	  provisioning flow. The product app owns its runtime health mapping;
+	  reusable protocol and persistent-profile code remains in components/.
+
+if BRIDGE_DEVICE_SERVICES
+
+config BRIDGE_CAN_ENABLE
+	bool "Enable CAN Device Info service"
+	default y
+	help
+	  Start FDCAN and process common Device Info requests in the bridge
+	  application loop. It responds on 0x600 + node_id using 0x580 + node_id.
+
+config BRIDGE_DEVICE_PROFILE_ALLOW_DEVELOPMENT
+	bool "Allow development Device Profile fallback"
+	default y
+	help
+	  Use the Kconfig identity below when EEPROM does not contain a valid
+	  Device Profile. Disable this in production firmware after local USB
+	  provisioning is complete.
+
+config BRIDGE_DEVICE_NODE_ID
+	int "Development CAN node ID"
+	default 13
+	range 1 127
+
+config BRIDGE_DEVICE_SERIAL_NUMBER
+	int "Development device serial number"
+	default 200001
+	range 1 2147483647
+
+config BRIDGE_DEVICE_HW_REVISION
+	int "Device hardware revision"
+	default 1
+	range 0 255
+
+config BRIDGE_DEVICE_FW_MAJOR
+	int "Firmware major version"
+	default 0
+	range 0 255
+
+config BRIDGE_DEVICE_FW_MINOR
+	int "Firmware minor version"
+	default 1
+	range 0 255
+
+config BRIDGE_DEVICE_FW_PATCH
+	int "Firmware patch version"
+	default 0
+	range 0 255
+
+config BRIDGE_DEVICE_FW_BUILD
+	int "Firmware build revision"
+	default 1
+	range 0 255
+
+endif # BRIDGE_DEVICE_SERVICES
+
+endmenu
 
 config BRIDGE_RS485_TASK_THREAD_STACK_SIZE
 	int "RS485 task thread stack size"
@@ -116,8 +186,7 @@ config BRIDGE_RS485_FUNCTION_CODE
 	help
 	  3 = Read Holding Registers.
 	  4 = Read Input Registers.
-	  The current rs485_modbus component supports FC04 first; FC03 is a
-	  profile placeholder for the next component extension.
+	  The rs485_modbus component supports both FC03 and FC04.
 
 config BRIDGE_RS485_START_REG
 	int "Modbus start register"

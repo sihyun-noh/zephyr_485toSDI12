@@ -5,8 +5,6 @@
 #include <zephyr/drivers/uart.h>
 #include <zephyr/sys/printk.h>
 
-#define MODBUS_FC_READ_INPUT_REGS 4
-
 static K_THREAD_STACK_DEFINE(rs485_modbus_thread_stack,
 			     CONFIG_DAJILOG_RS485_MODBUS_THREAD_STACK_SIZE);
 static struct k_thread rs485_modbus_thread_data;
@@ -55,12 +53,12 @@ static int rs485_read_response(const struct device *uart, uint8_t *rx,
 	return (int)len;
 }
 
-static int rs485_modbus_read_input_regs(struct rs485_modbus *ctx,
-					const struct rs485_modbus_msg *msg)
+static int rs485_modbus_read_regs(struct rs485_modbus *ctx,
+				  const struct rs485_modbus_msg *msg)
 {
 	uint8_t req[8] = {
 		msg->slave_addr,
-		MODBUS_FC_READ_INPUT_REGS,
+		msg->function_code,
 		(uint8_t)((msg->start_reg >> 8) & 0xff),
 		(uint8_t)(msg->start_reg & 0xff),
 		(uint8_t)((msg->reg_count >> 8) & 0xff),
@@ -130,7 +128,7 @@ static int rs485_modbus_read_input_regs(struct rs485_modbus *ctx,
 		return -EIO;
 	}
 
-	if (rx[0] != msg->slave_addr || rx[1] != MODBUS_FC_READ_INPUT_REGS ||
+	if (rx[0] != msg->slave_addr || rx[1] != msg->function_code ||
 	    rx[2] != (msg->reg_count * 2)) {
 		ctx->state.protocol_error_count++;
 		ctx->state.last_error = -EPROTO;
@@ -147,13 +145,14 @@ static int rs485_modbus_read_input_regs(struct rs485_modbus *ctx,
 	}
 
 	ctx->state.latest_slave_addr = msg->slave_addr;
+	ctx->state.latest_function_code = msg->function_code;
 	ctx->state.latest_start_reg = msg->start_reg;
 	ctx->state.latest_reg_count = msg->reg_count;
 	ctx->state.value_valid = true;
 	ctx->state.response_count++;
 	ctx->state.last_error = 0;
 
-	printk("Modbus FC04 addr=%u", msg->slave_addr);
+	printk("Modbus FC%02u addr=%u", msg->function_code, msg->slave_addr);
 	for (uint16_t i = 0; i < msg->reg_count; i++) {
 		uint16_t reg = ctx->state.regs[i];
 
@@ -176,8 +175,8 @@ static void rs485_modbus_thread(void *arg1, void *arg2, void *arg3)
 	while (1) {
 		k_msgq_get(&ctx->msgq, &msg, K_FOREVER);
 
-		if (msg.type == RS485_MODBUS_MSG_READ_INPUT_REGS) {
-			(void)rs485_modbus_read_input_regs(ctx, &msg);
+		if (msg.type == RS485_MODBUS_MSG_READ_REGS) {
+			(void)rs485_modbus_read_regs(ctx, &msg);
 		}
 	}
 }
@@ -225,8 +224,9 @@ int rs485_modbus_init(struct rs485_modbus *ctx)
 
 	ctx->state.ready = true;
 
-	printk("RS-485 Modbus component ready: slave=%u fc04 start=%u count=%u\r\n",
-	       ctx->config.default_slave_addr, ctx->config.default_start_reg,
+	printk("RS-485 Modbus component ready: slave=%u fc=%u start=%u count=%u\r\n",
+	       ctx->config.default_slave_addr, ctx->config.default_function_code,
+	       ctx->config.default_start_reg,
 	       ctx->config.default_reg_count);
 	printk("RS-485 default state: DE=0 receive mode\r\n");
 
@@ -257,12 +257,14 @@ int rs485_modbus_start(struct rs485_modbus *ctx)
 	return 0;
 }
 
-int rs485_modbus_request_read_regs(struct rs485_modbus *ctx, uint8_t slave_addr,
-				   uint16_t start_reg, uint16_t reg_count)
+int rs485_modbus_request_read_regs(struct rs485_modbus *ctx, uint8_t function_code,
+				   uint8_t slave_addr, uint16_t start_reg,
+				   uint16_t reg_count)
 {
 	struct rs485_modbus_msg msg = {
-		.type = RS485_MODBUS_MSG_READ_INPUT_REGS,
+		.type = RS485_MODBUS_MSG_READ_REGS,
 		.slave_addr = slave_addr,
+		.function_code = function_code,
 		.start_reg = start_reg,
 		.reg_count = reg_count,
 	};
@@ -278,6 +280,10 @@ int rs485_modbus_request_read_regs(struct rs485_modbus *ctx, uint8_t slave_addr,
 	if (reg_count == 0 || reg_count > RS485_MODBUS_MAX_REGS) {
 		return -EINVAL;
 	}
+	if (function_code != RS485_MODBUS_FC_READ_HOLDING_REGS &&
+	    function_code != RS485_MODBUS_FC_READ_INPUT_REGS) {
+		return -EINVAL;
+	}
 
 	return k_msgq_put(&ctx->msgq, &msg, K_NO_WAIT);
 }
@@ -289,7 +295,8 @@ int rs485_modbus_request_read(struct rs485_modbus *ctx)
 	}
 
 	return rs485_modbus_request_read_regs(
-		ctx, ctx->config.default_slave_addr, ctx->config.default_start_reg,
+		ctx, ctx->config.default_function_code,
+		ctx->config.default_slave_addr, ctx->config.default_start_reg,
 		ctx->config.default_reg_count);
 }
 

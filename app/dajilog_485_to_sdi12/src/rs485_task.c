@@ -46,13 +46,9 @@ static void rs485_task_thread(void *arg1, void *arg2, void *arg3)
 
 		bridge_state_mark_poll(&ctx->bridge);
 
-		if (CONFIG_BRIDGE_RS485_FUNCTION_CODE != 4) {
-			printk("RS485 profile fc=%d is not implemented yet; component currently supports FC04\r\n",
-			       CONFIG_BRIDGE_RS485_FUNCTION_CODE);
-		}
-
 		ret = rs485_modbus_request_read_regs(
-			&ctx->rs485, CONFIG_BRIDGE_RS485_SLAVE_ADDR,
+			&ctx->rs485, CONFIG_BRIDGE_RS485_FUNCTION_CODE,
+			CONFIG_BRIDGE_RS485_SLAVE_ADDR,
 			CONFIG_BRIDGE_RS485_START_REG,
 			CONFIG_BRIDGE_RS485_REG_COUNT);
 		if (ret != 0) {
@@ -72,6 +68,13 @@ static void rs485_task_thread(void *arg1, void *arg2, void *arg3)
 			bridge_state_update_from_rs485(
 				&ctx->bridge, state.regs,
 				(uint8_t)state.latest_reg_count);
+			if (IS_ENABLED(CONFIG_BRIDGE_CAN_ENABLE)) {
+				ret = bridge_can_service_publish_measurement(
+					&ctx->can_service);
+				if (ret != 0) {
+					printk("BRIDGE CAN telemetry queue failed ret=%d\r\n", ret);
+				}
+			}
 			publish_rs485_event(ctx, APP_MSG_RS485_VALUE_UPDATE,
 					    &state, 0);
 		} else if (state.last_error != 0) {

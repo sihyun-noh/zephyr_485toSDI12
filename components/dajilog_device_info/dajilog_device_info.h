@@ -17,6 +17,9 @@
 #define DAJILOG_DEVICE_INFO_UID_PART_SIZE 4U
 #define DAJILOG_DEVICE_INFO_UID_PART_COUNT \
 	(DAJILOG_DEVICE_INFO_UID_SIZE / DAJILOG_DEVICE_INFO_UID_PART_SIZE)
+#define DAJILOG_DEVICE_INFO_SERIAL_UID_TAIL_SIZE 6U
+#define DAJILOG_DEVICE_INFO_SERIAL_PART_SIZE 4U
+#define DAJILOG_DEVICE_INFO_SERIAL_PART_COUNT 2U
 
 enum dajilog_device_type {
 	DAJILOG_DEVICE_TYPE_SCALE = 0x01,
@@ -89,6 +92,8 @@ int dajilog_device_info_init(struct dajilog_device_info *ctx,
 			     const struct dajilog_device_identity *identity,
 			     struct dajilog_device_profile *profile);
 int dajilog_device_info_get_chip_uid(uint8_t uid[DAJILOG_DEVICE_INFO_UID_SIZE]);
+int dajilog_device_info_get_serial_uid_tail(
+	uint8_t serial[DAJILOG_DEVICE_INFO_SERIAL_UID_TAIL_SIZE]);
 bool dajilog_device_info_is_request_for(const struct dajilog_device_info *ctx,
 					const struct can_frame *request);
 int dajilog_device_info_handle_request(struct dajilog_device_info *ctx,

@@ -112,7 +112,26 @@ static int build_data_response(struct app_context *ctx, char *response,
 	}
 	pos += (size_t)ret;
 
-	for (uint8_t i = 0; i < snapshot.reg_count; i++) {
+	/* The sensor stores humidity at reg[0] and temperature at reg[1]. */
+	if (snapshot.reg_count >= 2U) {
+		ret = append_scaled_value(response, response_len, &pos,
+					  snapshot.regs[1], divisor_for_index(1));
+		if (ret < 0) {
+			return ret;
+		}
+		pos += (size_t)ret;
+	}
+
+	if (snapshot.reg_count >= 1U) {
+		ret = append_scaled_value(response, response_len, &pos,
+					  snapshot.regs[0], divisor_for_index(0));
+		if (ret < 0) {
+			return ret;
+		}
+		pos += (size_t)ret;
+	}
+
+	for (uint8_t i = 2U; i < snapshot.reg_count; i++) {
 		ret = append_scaled_value(response, response_len, &pos,
 					  snapshot.regs[i],
 					  divisor_for_index(i));

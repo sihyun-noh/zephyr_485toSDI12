@@ -15,14 +15,6 @@ static void put_i32_le(uint8_t *data, int32_t value)
 	data[3] = (uint8_t)((uint32_t)value >> 24);
 }
 
-static void put_u32_le(uint8_t *data, uint32_t value)
-{
-	data[0] = (uint8_t)value;
-	data[1] = (uint8_t)(value >> 8);
-	data[2] = (uint8_t)(value >> 16);
-	data[3] = (uint8_t)(value >> 24);
-}
-
 static bool request_is_valid(const struct dajilog_device_info *ctx,
 			     const struct can_frame *request,
 			     struct dajilog_device_profile_state *profile)
@@ -53,6 +45,27 @@ int dajilog_device_info_get_chip_uid(uint8_t uid[DAJILOG_DEVICE_INFO_UID_SIZE])
 	}
 
 	return length == DAJILOG_DEVICE_INFO_UID_SIZE ? 0 : -EIO;
+}
+
+int dajilog_device_info_get_serial_uid_tail(
+	uint8_t serial[DAJILOG_DEVICE_INFO_SERIAL_UID_TAIL_SIZE])
+{
+	uint8_t uid[DAJILOG_DEVICE_INFO_UID_SIZE];
+	int ret;
+
+	if (serial == NULL) {
+		return -EINVAL;
+	}
+
+	ret = dajilog_device_info_get_chip_uid(uid);
+	if (ret != 0) {
+		return ret;
+	}
+
+	memcpy(serial, &uid[DAJILOG_DEVICE_INFO_UID_SIZE -
+			    DAJILOG_DEVICE_INFO_SERIAL_UID_TAIL_SIZE],
+	       DAJILOG_DEVICE_INFO_SERIAL_UID_TAIL_SIZE);
+	return 0;
 }
 
 int dajilog_device_info_init(struct dajilog_device_info *ctx,
@@ -118,10 +131,32 @@ int dajilog_device_info_handle_request(struct dajilog_device_info *ctx,
 		response->data[6] = ctx->identity.app_protocol_version;
 		response->data[7] = ctx->identity.firmware_build;
 		break;
-	case DAJILOG_DEVICE_INFO_GET_SERIAL:
+	case DAJILOG_DEVICE_INFO_GET_SERIAL: {
+		uint8_t serial[DAJILOG_DEVICE_INFO_SERIAL_UID_TAIL_SIZE];
+		uint8_t part = request->data[3];
+		size_t offset;
+		size_t length;
+		int ret;
+
+		if (part >= DAJILOG_DEVICE_INFO_SERIAL_PART_COUNT) {
+			ctx->reject_count++;
+			return -EINVAL;
+		}
+
+		ret = dajilog_device_info_get_serial_uid_tail(serial);
+		if (ret != 0) {
+			ctx->reject_count++;
+			return ret;
+		}
+
+		offset = part * DAJILOG_DEVICE_INFO_SERIAL_PART_SIZE;
+		length = MIN(DAJILOG_DEVICE_INFO_SERIAL_PART_SIZE,
+			     DAJILOG_DEVICE_INFO_SERIAL_UID_TAIL_SIZE - offset);
 		response->data[1] = DAJILOG_DEVICE_INFO_SERIAL_RESPONSE;
-		put_u32_le(&response->data[3], profile.data.serial_number);
+		response->data[3] = part;
+		memcpy(&response->data[4], &serial[offset], length);
 		break;
+	}
 	case DAJILOG_DEVICE_INFO_GET_UID_PART: {
 		uint8_t uid[DAJILOG_DEVICE_INFO_UID_SIZE];
 		uint8_t part = request->data[3];

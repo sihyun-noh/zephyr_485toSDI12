@@ -2,7 +2,6 @@
 	chosen {
 		zephyr,console = &cdc_acm_uart0;
 		zephyr,shell-uart = &cdc_acm_uart0;
-		zephyr,display = &ssd1309;
 	};
 
 	aliases {
@@ -44,24 +43,7 @@
 };
 
 &i2c1 {
-	pinctrl-0 = <&i2c1_scl_pa15 &i2c1_sda_pb7>;
-	pinctrl-names = "default";
-	clock-frequency = <400000>;
-	status = "okay";
-
-	ssd1309: ssd1309@3c {
-		compatible = "solomon,ssd1306fb";
-		reg = <0x3c>;
-		width = <128>;
-		height = <64>;
-		segment-offset = <0>;
-		page-offset = <0>;
-		display-offset = <0>;
-		multiplex-ratio = <63>;
-		segment-remap;
-		com-invdir;
-		prechargep = <0x22>;
-	};
+	status = "disabled";
 };
 
 &zephyr_udc0 {

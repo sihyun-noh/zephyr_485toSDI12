@@ -9,6 +9,8 @@
 #include <zephyr/init.h>
 #include <zephyr/sys/printk.h>
 
+#include <dajilog_device_provisioning/dajilog_device_provisioning.h>
+
 #include "monitor_task.h"
 #include "rs485_task.h"
 #include "sdi12_response.h"
@@ -16,7 +18,7 @@
 
 #define USER_NODE DT_PATH(zephyr_user)
 #define RS485_UART_NODE DT_NODELABEL(usart1)
-#define I2C1_NODE DT_NODELABEL(i2c1)
+#define CAN_NODE DT_CHOSEN(zephyr_canbus)
 
 struct bridge_gpio_output {
 	const char *name;
@@ -40,6 +42,7 @@ struct app_context app = {
 			.uart = DEVICE_DT_GET(RS485_UART_NODE),
 			.de = GPIO_DT_SPEC_GET(USER_NODE, rs485_en_gpios),
 			.default_slave_addr = CONFIG_BRIDGE_RS485_SLAVE_ADDR,
+			.default_function_code = CONFIG_BRIDGE_RS485_FUNCTION_CODE,
 			.default_start_reg = CONFIG_BRIDGE_RS485_START_REG,
 			.default_reg_count = CONFIG_BRIDGE_RS485_REG_COUNT,
 			.response_timeout_ms =
@@ -57,13 +60,19 @@ struct app_context app = {
 			.user_data = &app,
 		},
 	},
-	.oled = {
+	.can = {
 		.config = {
-			.display = DEVICE_DT_GET(DT_CHOSEN(zephyr_display)),
-			.i2c = DEVICE_DT_GET(I2C1_NODE),
-			.i2c_speed_hz = CONFIG_DAJILOG_OLED_I2C_SPEED_HZ,
-			.scan_i2c_on_init =
-				IS_ENABLED(CONFIG_DAJILOG_OLED_SCAN_I2C_ON_INIT),
+			.dev = DEVICE_DT_GET(CAN_NODE),
+			.default_tx_id = DAJILOG_DEVICE_INFO_RESPONSE_BASE_ID,
+		},
+	},
+	.device_profile = {
+		.config = {
+			.allow_development_profile =
+				IS_ENABLED(CONFIG_BRIDGE_DEVICE_PROFILE_ALLOW_DEVELOPMENT),
+			.development_node_id = CONFIG_BRIDGE_DEVICE_NODE_ID,
+			.development_hardware_revision = CONFIG_BRIDGE_DEVICE_HW_REVISION,
+			.development_serial_number = CONFIG_BRIDGE_DEVICE_SERIAL_NUMBER,
 		},
 	},
 };
@@ -166,6 +175,57 @@ int app_context_init(struct app_context *ctx)
 	return 0;
 }
 
+int app_device_services_init(struct app_context *ctx)
+{
+	struct dajilog_device_profile_state profile;
+	struct dajilog_device_identity identity = {
+		.device_type = DAJILOG_DEVICE_TYPE_485_TO_SDI12,
+		.hardware_revision = CONFIG_BRIDGE_DEVICE_HW_REVISION,
+		.firmware_major = CONFIG_BRIDGE_DEVICE_FW_MAJOR,
+		.firmware_minor = CONFIG_BRIDGE_DEVICE_FW_MINOR,
+		.firmware_patch = CONFIG_BRIDGE_DEVICE_FW_PATCH,
+		.firmware_build = CONFIG_BRIDGE_DEVICE_FW_BUILD,
+		.app_protocol_version = 1,
+		.capability = DAJILOG_CAPABILITY_EEPROM_STORE |
+			      DAJILOG_CAPABILITY_RS485_MODBUS |
+			      DAJILOG_CAPABILITY_SDI12_SLAVE |
+			      DAJILOG_CAPABILITY_SERVICE_MODE,
+	};
+	int ret;
+
+	if (ctx == NULL) {
+		return -EINVAL;
+	}
+
+	ret = dajilog_device_profile_init(&ctx->device_profile);
+	dajilog_device_profile_get(&ctx->device_profile, &profile);
+	printk("Device profile init ret=%d valid=%d persistent=%d development=%d node=%u serial=%u hw=%u\r\n",
+	       ret, profile.valid, profile.persistent, profile.development,
+	       profile.data.node_id, (unsigned int)profile.data.serial_number,
+	       profile.data.hardware_revision);
+	if (ret != 0) {
+		return ret;
+	}
+
+	identity.hardware_revision = profile.data.hardware_revision;
+	ret = dajilog_device_info_init(&ctx->device_info, &identity,
+				       &ctx->device_profile);
+	if (ret != 0) {
+		return ret;
+	}
+
+	ret = dajilog_device_provisioning_init(
+		&(struct dajilog_device_provisioning_config){
+			.device_info = &ctx->device_info,
+			.runtime_get = bridge_device_runtime_get,
+			.user_data = ctx,
+		});
+	printk("Device services init ret=%d request=0x%03x response=0x%03x\r\n",
+	       ret, DAJILOG_DEVICE_INFO_REQUEST_BASE_ID + profile.data.node_id,
+	       DAJILOG_DEVICE_INFO_RESPONSE_BASE_ID + profile.data.node_id);
+	return ret;
+}
+
 int app_components_init(struct app_context *ctx)
 {
 	struct app_msg msg = {
@@ -190,6 +250,17 @@ int app_components_init(struct app_context *ctx)
 		return ret;
 	}
 
+	if (IS_ENABLED(CONFIG_BRIDGE_CAN_ENABLE)) {
+		ret = can_bus_init(&ctx->can);
+		if (ret == 0) {
+			ret = can_bus_start(&ctx->can);
+		}
+		printk("CAN component start ret=%d\r\n", ret);
+		if (ret != 0) {
+			return ret;
+		}
+	}
+
 	ret = rs485_modbus_init(&ctx->rs485);
 	if (ret == 0) {
 		ret = rs485_modbus_start(&ctx->rs485);
@@ -208,12 +279,6 @@ int app_components_init(struct app_context *ctx)
 		return ret;
 	}
 
-	ret = oled_display_init(&ctx->oled);
-	printk("OLED component init ret=%d\r\n", ret);
-	if (ret != 0) {
-		printk("OLED disabled for this run ret=%d\r\n", ret);
-	}
-
 	(void)app_msg_publish(&ctx->app_msgq, &msg);
 
 	return 0;
@@ -222,6 +287,15 @@ int app_components_init(struct app_context *ctx)
 int app_tasks_start(struct app_context *ctx)
 {
 	int ret;
+
+	if (IS_ENABLED(CONFIG_BRIDGE_CAN_ENABLE)) {
+		ret = bridge_can_service_init(&ctx->can_service, &ctx->can, ctx,
+					      &ctx->device_info);
+		if (ret != 0) {
+			return ret;
+		}
+		printk("Bridge CAN Device Info and telemetry service ready\r\n");
+	}
 
 	ret = rs485_task_start(ctx);
 	if (ret != 0) {

@@ -29,33 +29,6 @@ static void print_bridge_state(struct app_context *ctx)
 	printk("\r\n");
 }
 
-static void display_bridge_state(struct app_context *ctx)
-{
-	struct bridge_state_snapshot snapshot;
-	char line1[32];
-	char line2[32];
-	char line3[32];
-
-	bridge_state_snapshot_get(&ctx->bridge, &snapshot);
-
-	if (!snapshot.value_valid || snapshot.reg_count < 2) {
-		(void)oled_display_show_text(&ctx->oled, "485->SDI12",
-					     "TEMP: WAIT", "HUM : WAIT",
-					     app_state_name(ctx->fsm.state));
-		return;
-	}
-
-	snprintk(line1, sizeof(line1), "TEMP:%u.%02u C",
-		 snapshot.regs[0] / 100, snapshot.regs[0] % 100);
-	snprintk(line2, sizeof(line2), "HUM :%u.%02u %%", snapshot.regs[1] / 100,
-		 snapshot.regs[1] % 100);
-	snprintk(line3, sizeof(line3), "UPD:%lu ERR:%d",
-		 (unsigned long)snapshot.update_count, snapshot.last_error);
-
-	(void)oled_display_show_text(&ctx->oled, "485->SDI12", line1, line2,
-				     line3);
-}
-
 static void monitor_task_thread(void *arg1, void *arg2, void *arg3)
 {
 	struct app_context *ctx = arg1;
@@ -69,7 +42,6 @@ static void monitor_task_thread(void *arg1, void *arg2, void *arg3)
 
 	while (1) {
 		print_bridge_state(ctx);
-		display_bridge_state(ctx);
 		k_sleep(K_MSEC(CONFIG_BRIDGE_MONITOR_PERIOD_MS));
 	}
 }

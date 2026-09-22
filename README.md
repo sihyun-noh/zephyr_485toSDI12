@@ -30,7 +30,8 @@ cd /path/to/example-application
 source ~/zephyrproject/.venv/bin/activate
 
 # dajilog_scale
-west build -p always -b dajilog_tech app/dajilog_scale -d build_dajilog_scale
+west build -p always -b dajilog_tech app/dajilog_scale -d build_dajilog_scale \
+  -- -DEXTRA_CONF_FILE=profiles/scale_default.conf
 west flash -d build_dajilog_scale
 
 # RS-485 to SDI-12 bridge, default sensor profile
@@ -50,6 +51,26 @@ west flash -d build_dajilog_tech_test
 
 The application CMake files pin board-specific apps to their safe target board where
 needed. Do not reuse a build directory for a different board or app.
+
+### Profile build helpers
+
+The same build commands are available as scripts. Source the Zephyr virtual environment first.
+
+```bash
+./scripts/build_dajilog_scale.sh
+./scripts/build_dajilog_scale.sh flash
+
+./scripts/build_dajilog_485_to_sdi12.sh
+./scripts/build_dajilog_485_to_sdi12.sh flash
+```
+
+Select a product variant without changing source code by overriding `PROFILE` and,
+when needed, use a separate `BUILD_DIR`.
+
+```bash
+PROFILE=profiles/scale_default.conf BUILD_DIR=build_scale_v01 \
+  ./scripts/build_dajilog_scale.sh
+```
 
 ## 개발 기준
 

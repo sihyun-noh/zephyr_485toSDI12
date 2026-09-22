@@ -27,4 +27,6 @@ target_sources(app PRIVATE
   src/sdi12_task.c
   src/sdi12_response.c
   src/monitor_task.c
+  src/bridge_can_service.c
+  src/bridge_shell.c
 )

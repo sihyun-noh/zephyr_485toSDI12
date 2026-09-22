@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
-menu "Dajilog components"
+menu "Common components"
 
 rsource "ads1232/Kconfig"
 rsource "display_oled/Kconfig"

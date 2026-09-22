@@ -37,7 +37,7 @@ static int cmd_device_info(const struct shell *shell, size_t argc, char **argv)
 	struct dajilog_device_profile_state profile;
 	struct dajilog_device_runtime runtime;
 	const struct dajilog_device_identity *identity;
-	uint8_t uid[DAJILOG_DEVICE_INFO_UID_SIZE];
+	uint8_t serial_uid[DAJILOG_DEVICE_INFO_SERIAL_UID_TAIL_SIZE];
 	int ret;
 
 	ARG_UNUSED(argc);
@@ -51,7 +51,7 @@ static int cmd_device_info(const struct shell *shell, size_t argc, char **argv)
 
 	identity = &provisioning.device_info->identity;
 	get_runtime(&runtime);
-	shell_print(shell, "type=0x%02x node=%u serial=%u hw=%u", identity->device_type,
+	shell_print(shell, "type=0x%02x node=%u install_serial=%u hw=%u", identity->device_type,
 		    profile.data.node_id, (unsigned int)profile.data.serial_number,
 		    identity->hardware_revision);
 	shell_print(shell, "fw=%u.%u.%u build=%u app_proto=%u capability=0x%04x",
@@ -62,14 +62,13 @@ static int cmd_device_info(const struct shell *shell, size_t argc, char **argv)
 		    runtime.health, runtime.last_error,
 		    profile.persistent ? "persistent" :
 		    (profile.development ? "development" : "invalid"));
-	ret = dajilog_device_info_get_chip_uid(uid);
+	ret = dajilog_device_info_get_serial_uid_tail(serial_uid);
 	if (ret == 0) {
-		shell_print(shell,
-			    "chip_uid=%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x",
-			    uid[0], uid[1], uid[2], uid[3], uid[4], uid[5], uid[6], uid[7],
-			    uid[8], uid[9], uid[10], uid[11]);
+		shell_print(shell, "serial_uid=%02x%02x%02x%02x%02x%02x",
+			    serial_uid[0], serial_uid[1], serial_uid[2], serial_uid[3],
+			    serial_uid[4], serial_uid[5]);
 	} else {
-		shell_error(shell, "chip UID unavailable (%d)", ret);
+		shell_error(shell, "serial UID unavailable (%d)", ret);
 	}
 	return 0;
 }
