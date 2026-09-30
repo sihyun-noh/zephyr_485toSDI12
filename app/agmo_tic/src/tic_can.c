@@ -165,8 +165,7 @@ static int send_status_frame(void)
 	tic_output_get_snapshot(&output);
 
 	frame.data[0] = (input.di1_key_on ? BIT(0) : 0U) |
-			(input.di2_manual_crank ? BIT(1) : 0U) |
-			(input.di3 ? BIT(2) : 0U);
+			(input.di2_manual_crank ? BIT(1) : 0U);
 	frame.data[1] = (output.r1_key_on ? BIT(0) : 0U) |
 			(output.r2_restart ? BIT(1) : 0U) |
 			(output.r3_manual_lockout ? BIT(2) : 0U) |

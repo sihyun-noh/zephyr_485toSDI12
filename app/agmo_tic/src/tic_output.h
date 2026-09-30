@@ -20,6 +20,7 @@ int tic_output_set_r1(bool on);
 int tic_output_set_r2(bool on);
 int tic_output_set_r3(bool on);
 int tic_output_set_r4(bool on);
+int tic_output_set_r5(bool on);
 int tic_output_all_off(void);
 void tic_output_sync_auto_leds(bool key_input_on);
 int tic_output_led_set(enum tic_led_id id, bool on);

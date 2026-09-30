@@ -20,6 +20,7 @@ enum relay_id {
 	RELAY_R2_RESTART,
 	RELAY_R3_MANUAL_LOCKOUT,
 	RELAY_R4_ENGINE_STOP,
+	RELAY_R5_AUX,
 	RELAY_COUNT,
 };
 
@@ -39,6 +40,10 @@ static const struct tic_gpio_signal relays[RELAY_COUNT] = {
 	[RELAY_R4_ENGINE_STOP] = {
 		.name = "r4_engine_stop",
 		.gpio = GPIO_DT_SPEC_GET(USER_NODE, do_relay4_gpios),
+	},
+	[RELAY_R5_AUX] = {
+		.name = "r5_aux",
+		.gpio = GPIO_DT_SPEC_GET(USER_NODE, do_relay5_gpios),
 	},
 };
 
@@ -101,6 +106,7 @@ static int relay_set_locked(enum relay_id id, bool on)
 	}
 
 	if (on && id != RELAY_R1_KEY_ON && id != RELAY_R4_ENGINE_STOP &&
+	    id != RELAY_R5_AUX &&
 	    !snapshot.r1_key_on) {
 		return -EACCES;
 	}
@@ -122,6 +128,9 @@ static int relay_set_locked(enum relay_id id, bool on)
 		break;
 	case RELAY_R4_ENGINE_STOP:
 		snapshot.r4_engine_stop = on;
+		break;
+	case RELAY_R5_AUX:
+		snapshot.r5_aux = on;
 		break;
 	default:
 		return -EINVAL;
@@ -241,6 +250,17 @@ int tic_output_set_r4(bool on)
 	return ret;
 }
 
+int tic_output_set_r5(bool on)
+{
+	int ret;
+
+	k_mutex_lock(&output_mutex, K_FOREVER);
+	ret = relay_set_locked(RELAY_R5_AUX, on);
+	sync_auto_leds_locked(snapshot.led_key);
+	k_mutex_unlock(&output_mutex);
+	return ret;
+}
+
 int tic_output_all_off(void)
 {
 	int ret = 0;
@@ -256,6 +276,9 @@ int tic_output_all_off(void)
 		ret = -EIO;
 	}
 	if (relay_set_locked(RELAY_R4_ENGINE_STOP, false) != 0) {
+		ret = -EIO;
+	}
+	if (relay_set_locked(RELAY_R5_AUX, false) != 0) {
 		ret = -EIO;
 	}
 	sync_auto_leds_locked(snapshot.led_key);

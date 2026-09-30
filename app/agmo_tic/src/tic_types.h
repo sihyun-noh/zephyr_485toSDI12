@@ -94,7 +94,6 @@ struct tic_fsm_snapshot {
 struct tic_input_snapshot {
 	bool di1_key_on;
 	bool di2_manual_crank;
-	bool di3;
 };
 
 struct tic_output_snapshot {
@@ -102,6 +101,7 @@ struct tic_output_snapshot {
 	bool r2_restart;
 	bool r3_manual_lockout;
 	bool r4_engine_stop;
+	bool r5_aux;
 	bool led_restart;
 	bool led_acc;
 	bool led_manual;

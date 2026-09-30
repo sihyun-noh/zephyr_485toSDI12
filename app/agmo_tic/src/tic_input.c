@@ -18,14 +18,12 @@
 enum input_id {
 	INPUT_DI1_KEY_ON,
 	INPUT_DI2_MANUAL_CRANK,
-	INPUT_DI3,
 	INPUT_COUNT,
 };
 
 static const struct gpio_dt_spec inputs[INPUT_COUNT] = {
 	[INPUT_DI1_KEY_ON] = GPIO_DT_SPEC_GET(USER_NODE, di1_gpios),
 	[INPUT_DI2_MANUAL_CRANK] = GPIO_DT_SPEC_GET(USER_NODE, di2_gpios),
-	[INPUT_DI3] = GPIO_DT_SPEC_GET(USER_NODE, di3_gpios),
 };
 
 static struct tic_input_snapshot snapshot;
@@ -41,7 +39,6 @@ static void snapshot_update_locked(void)
 {
 	snapshot.di1_key_on = stable[INPUT_DI1_KEY_ON];
 	snapshot.di2_manual_crank = stable[INPUT_DI2_MANUAL_CRANK];
-	snapshot.di3 = stable[INPUT_DI3];
 }
 
 static int post_input_event(enum input_id id, bool active)
@@ -56,8 +53,6 @@ static int post_input_event(enum input_id id, bool active)
 		event.type = active ? TIC_EVENT_MANUAL_CRANK_ON :
 					    TIC_EVENT_MANUAL_CRANK_OFF;
 		break;
-	case INPUT_DI3:
-		return 0;
 	default:
 		return -EINVAL;
 	}

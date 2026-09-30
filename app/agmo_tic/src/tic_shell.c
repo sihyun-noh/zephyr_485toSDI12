@@ -66,11 +66,12 @@ static int cmd_tic(const struct shell *sh, size_t argc, char **argv)
 			    fsm.stop_accepted,
 			    fsm.state == TIC_STATE_ENGINE_STOPPING,
 			    fsm.stop_complete, fsm.stop_rejected);
-		shell_print(sh, "input: key=%u manual_crank=%u di3=%u",
-			    input.di1_key_on, input.di2_manual_crank, input.di3);
-		shell_print(sh, "relay: R1_key=%u R2_crank=%u R3_lockout=%u R4_stop=%u remaining=%u ms",
+		shell_print(sh, "input: key=%u manual_crank=%u",
+			    input.di1_key_on, input.di2_manual_crank);
+		shell_print(sh, "relay: R1_key=%u R2_crank=%u R3_lockout=%u R4_stop=%u R5_aux=%u remaining=%u ms",
 			    output.r1_key_on, output.r2_restart,
 			    output.r3_manual_lockout, output.r4_engine_stop,
+			    output.r5_aux,
 			    fsm.crank_remaining_ms);
 		return 0;
 	}
@@ -115,9 +116,68 @@ static int cmd_input(const struct shell *sh, size_t argc, char **argv)
 		return -EINVAL;
 	}
 	tic_input_get_snapshot(&input);
-	shell_print(sh, "DI1 key=%u, DI2 manual_crank=%u, DI3=%u",
-		    input.di1_key_on, input.di2_manual_crank, input.di3);
+	shell_print(sh, "DI1 key=%u, DI2 manual_crank=%u",
+		    input.di1_key_on, input.di2_manual_crank);
 	return 0;
+}
+
+static int cmd_relay(const struct shell *sh, size_t argc, char **argv)
+{
+	struct tic_output_snapshot output;
+	unsigned long relay_number;
+	char *end;
+	bool on;
+	int ret;
+
+	if (strcmp(argv[1], "status") == 0 && argc == 2) {
+		tic_output_get_snapshot(&output);
+		shell_print(sh,
+			    "R1_key=%u R2_crank=%u R3_lockout=%u R4_stop=%u R5_aux=%u",
+			    output.r1_key_on, output.r2_restart,
+			    output.r3_manual_lockout, output.r4_engine_stop,
+			    output.r5_aux);
+		return 0;
+	}
+
+	if (argc == 3 && parse_on_off(argv[2], &on) == 0) {
+		relay_number = strtoul(argv[1], &end, 10);
+		if (*argv[1] == '\0' || *end != '\0' || relay_number < 1UL ||
+		    relay_number > 5UL) {
+			goto usage;
+		}
+
+		switch (relay_number) {
+		case 1:
+			ret = tic_output_set_r1(on);
+			break;
+		case 2:
+			ret = tic_output_set_r2(on);
+			break;
+		case 3:
+			ret = tic_output_set_r3(on);
+			break;
+		case 4:
+			ret = tic_output_set_r4(on);
+			break;
+		case 5:
+			ret = tic_output_set_r5(on);
+			break;
+		default:
+			return -EINVAL;
+		}
+
+		if (ret != 0) {
+			shell_error(sh, "Relay %lu error: %d", relay_number, ret);
+			if (ret == -EACCES) {
+				shell_error(sh, "R2/R3 require R1 on");
+			}
+		}
+		return ret;
+	}
+
+usage:
+	shell_error(sh, "usage: relay <status|1..5 on|off>");
+	return -EINVAL;
 }
 
 static int cmd_can(const struct shell *sh, size_t argc, char **argv)
@@ -188,6 +248,8 @@ SHELL_CMD_ARG_REGISTER(input, NULL, "Input diagnostics: input status",
 	cmd_input, 2, 0);
 SHELL_CMD_ARG_REGISTER(can, NULL, "CAN diagnostics: can status",
 	cmd_can, 2, 0);
+SHELL_CMD_ARG_REGISTER(relay, NULL,
+	"Relay diagnostics: relay <status|1..5 on|off>", cmd_relay, 2, 1);
 SHELL_CMD_ARG_REGISTER(led, NULL,
 	"LED control: led <status|auto|restart|acc|manual|key|all> [on|off]",
 	cmd_led, 2, 1);

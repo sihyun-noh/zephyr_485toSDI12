@@ -16,7 +16,7 @@
 		do-relay4-gpios = <&gpiob 14 GPIO_ACTIVE_HIGH>;
 		di1-gpios = <&gpiob 15 GPIO_ACTIVE_LOW>;
 		di2-gpios = <&gpioa 8 GPIO_ACTIVE_LOW>;
-		di3-gpios = <&gpioa 9 GPIO_ACTIVE_LOW>;
+		do-relay5-gpios = <&gpioa 9 GPIO_ACTIVE_HIGH>;
 	};
 };
 
