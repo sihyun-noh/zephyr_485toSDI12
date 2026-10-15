@@ -7236,10 +7236,22 @@
 		(uuid "d375a1df-d141-4f3d-bfa7-b0401291131b")
 	)
 	(junction
+		(at 111.76 170.18)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "dc78fac3-2dd7-48ba-b299-8b06bd3d136d")
+	)
+	(junction
 		(at 38.1 133.35)
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "dd173244-6c1d-4e8c-9cdc-abc496f0ead5")
+	)
+	(junction
+		(at 101.6 157.48)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "e6d3d0f1-3f0a-46b4-baf9-189c8de7c5fb")
 	)
 	(junction
 		(at 43.18 184.15)
@@ -7345,13 +7357,13 @@
 	)
 	(wire
 		(pts
-			(xy 102.87 63.5) (xy 109.22 63.5)
+			(xy 101.6 157.48) (xy 101.6 162.56)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
-		(uuid "099c1b9c-d343-4fe4-95db-9f137a9002ce")
+		(uuid "09a8fa30-3a37-4c99-b77a-f97155151a20")
 	)
 	(wire
 		(pts
@@ -7372,6 +7384,16 @@
 			(type default)
 		)
 		(uuid "0c290ebe-fcd4-471c-8810-881f919d0b02")
+	)
+	(wire
+		(pts
+			(xy 144.78 161.29) (xy 144.78 160.02)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "0e42a0fd-d500-4e65-aedf-45678c91ea9d")
 	)
 	(wire
 		(pts
@@ -7455,7 +7477,7 @@
 	)
 	(wire
 		(pts
-			(xy 231.14 116.84) (xy 236.22 116.84)
+			(xy 231.14 116.84) (xy 252.73 116.84)
 		)
 		(stroke
 			(width 0)
@@ -7565,7 +7587,7 @@
 	)
 	(wire
 		(pts
-			(xy 140.97 160.02) (xy 147.32 160.02)
+			(xy 144.78 161.29) (xy 147.32 161.29)
 		)
 		(stroke
 			(width 0)
@@ -7625,7 +7647,7 @@
 	)
 	(wire
 		(pts
-			(xy 140.97 165.1) (xy 147.32 165.1)
+			(xy 146.05 166.37) (xy 147.32 166.37)
 		)
 		(stroke
 			(width 0)
@@ -7815,6 +7837,16 @@
 	)
 	(wire
 		(pts
+			(xy 101.6 157.48) (xy 120.65 157.48)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "52a7506c-d43c-4b4a-99cb-156963d3652d")
+	)
+	(wire
+		(pts
 			(xy 148.59 76.2) (xy 153.67 76.2)
 		)
 		(stroke
@@ -7882,6 +7914,16 @@
 			(type default)
 		)
 		(uuid "5a9d7f84-53a4-490a-848f-a522b6955d0d")
+	)
+	(wire
+		(pts
+			(xy 146.05 166.37) (xy 146.05 165.1)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "5c136f54-21f5-4243-b694-0869f2aec485")
 	)
 	(wire
 		(pts
@@ -8105,6 +8147,16 @@
 	)
 	(wire
 		(pts
+			(xy 111.76 170.18) (xy 111.76 177.8)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "767d48b1-ae69-441d-b375-369410091af7")
+	)
+	(wire
+		(pts
 			(xy 199.39 121.92) (xy 199.39 125.73)
 		)
 		(stroke
@@ -8215,6 +8267,16 @@
 	)
 	(wire
 		(pts
+			(xy 102.87 63.5) (xy 109.22 63.5)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "8128d0bf-5f14-4be0-aaff-62ce49fedbc6")
+	)
+	(wire
+		(pts
 			(xy 199.39 121.92) (xy 205.74 121.92)
 		)
 		(stroke
@@ -8295,6 +8357,16 @@
 	)
 	(wire
 		(pts
+			(xy 144.78 160.02) (xy 140.97 160.02)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "90067339-6831-4ddd-8d08-6d1cad725706")
+	)
+	(wire
+		(pts
 			(xy 58.42 99.06) (xy 67.31 99.06)
 		)
 		(stroke
@@ -8332,6 +8404,16 @@
 			(type default)
 		)
 		(uuid "92f1f0b5-c713-434c-859e-5434e388ec55")
+	)
+	(wire
+		(pts
+			(xy 146.05 165.1) (xy 140.97 165.1)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "9342c9dd-e462-4bdb-9d40-e7e98fb4d366")
 	)
 	(wire
 		(pts
@@ -8565,7 +8647,7 @@
 	)
 	(wire
 		(pts
-			(xy 115.57 162.56) (xy 120.65 162.56)
+			(xy 99.06 157.48) (xy 101.6 157.48)
 		)
 		(stroke
 			(width 0)
@@ -8615,16 +8697,6 @@
 	)
 	(wire
 		(pts
-			(xy 115.57 157.48) (xy 120.65 157.48)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "cb4537d2-c26a-4e46-b319-11654d8c9b66")
-	)
-	(wire
-		(pts
 			(xy 129.54 76.2) (xy 133.35 76.2)
 		)
 		(stroke
@@ -8665,6 +8737,16 @@
 	)
 	(wire
 		(pts
+			(xy 101.6 170.18) (xy 111.76 170.18)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "cfc31d95-8be1-4fdf-a3a2-301a31a0a203")
+	)
+	(wire
+		(pts
 			(xy 153.67 149.86) (xy 153.67 142.24)
 		)
 		(stroke
@@ -8672,16 +8754,6 @@
 			(type default)
 		)
 		(uuid "d2a63605-e1ae-4a71-ba0a-9aee700f3bd8")
-	)
-	(wire
-		(pts
-			(xy 111.76 170.18) (xy 111.76 177.8)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "d4c9711a-4cb7-43f8-b175-1a8f37dd3bbd")
 	)
 	(wire
 		(pts
@@ -8805,7 +8877,7 @@
 	)
 	(wire
 		(pts
-			(xy 236.22 121.92) (xy 231.14 121.92)
+			(xy 231.14 121.92) (xy 246.38 121.92)
 		)
 		(stroke
 			(width 0)
@@ -8862,16 +8934,6 @@
 			(type default)
 		)
 		(uuid "e3f7d847-baed-4deb-b098-c26000ad5728")
-	)
-	(wire
-		(pts
-			(xy 246.38 116.84) (xy 252.73 116.84)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "e63cd3ca-5f52-4d9e-8e93-434fc0d39a0b")
 	)
 	(wire
 		(pts
@@ -9164,7 +9226,7 @@
 		(uuid "4d77f936-cfec-4fce-bf0f-b79d039603ef")
 	)
 	(label "ISO_CAN_RXD"
-		(at 147.32 165.1 0)
+		(at 147.32 166.37 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -9194,7 +9256,7 @@
 		(uuid "a28b37bd-873f-407a-a894-5d4a43222de0")
 	)
 	(label "ISO_CAN_TXD"
-		(at 147.32 160.02 0)
+		(at 147.32 161.29 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -9459,6 +9521,30 @@
 			)
 		)
 	)
+	(global_label "DO5"
+		(shape passive)
+		(at 109.22 63.5 0)
+		(fields_autoplaced yes)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left)
+		)
+		(uuid "501a4551-da0c-41d4-a0c2-2e667dd3f0a3")
+		(property "Intersheetrefs" "${INTERSHEET_REFS}"
+			(at 114.9039 63.5 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+	)
 	(global_label "DI_1"
 		(shape passive)
 		(at 58.42 109.22 180)
@@ -9480,6 +9566,30 @@
 					(size 1.27 1.27)
 				)
 				(justify right)
+			)
+		)
+	)
+	(global_label "ISO_DO5"
+		(shape input)
+		(at 147.32 157.48 0)
+		(fields_autoplaced yes)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left)
+		)
+		(uuid "55dcd7be-11cf-44f6-8649-7bff15eb753a")
+		(property "Intersheetrefs" "${INTERSHEET_REFS}"
+			(at 158.2276 157.48 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
 			)
 		)
 	)
@@ -9891,30 +10001,6 @@
 			)
 		)
 	)
-	(global_label "DI_3"
-		(shape passive)
-		(at 109.22 63.5 0)
-		(fields_autoplaced yes)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left)
-		)
-		(uuid "d76bfd59-1d27-4afb-b306-236a15537aaa")
-		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 115.1458 63.5 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-		)
-	)
 	(global_label "I2C1_SCL"
 		(shape passive)
 		(at 142.24 58.42 180)
@@ -9976,6 +10062,30 @@
 		(uuid "ed6a302e-d5ab-4a66-bd2d-5cab86fa9e80")
 		(property "Intersheetrefs" "${INTERSHEET_REFS}"
 			(at 25.0758 128.27 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+	)
+	(global_label "DO5"
+		(shape passive)
+		(at 99.06 157.48 180)
+		(fields_autoplaced yes)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right)
+		)
+		(uuid "efc617a7-51ce-4dc2-91ad-bb591d3f712c")
+		(property "Intersheetrefs" "${INTERSHEET_REFS}"
+			(at 93.3761 157.48 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -12881,6 +12991,114 @@
 		)
 	)
 	(symbol
+		(lib_id "Filter:Choke_CommonMode_FerriteCore_1423")
+		(at 241.3 107.95 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board no)
+		(in_pos_files no)
+		(dnp yes)
+		(fields_autoplaced yes)
+		(uuid "53b0328f-f5e0-4bef-8a7b-570faf2b18f4")
+		(property "Reference" "FL1"
+			(at 241.173 100.33 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "ACT45B-510-2P-TL003"
+			(at 241.173 102.87 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "Inductor_SMD:L_CommonModeChoke_Coilank_ACM3216"
+			(at 241.3 114.3 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 241.3 116.205 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Generic common-mode choke, ferrite core, 1423 pin order"
+			(at 241.3 107.95 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Field5" "TDK ACT45B-510-2P-TL003"
+			(at 241.3 107.95 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Field6" ""
+			(at 241.3 107.95 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "2"
+			(uuid "14d9ad00-1830-4e4b-ba80-bc49a59423d4")
+		)
+		(pin "1"
+			(uuid "fe013f58-d5ed-486f-acfa-7ed9edae2247")
+		)
+		(pin "3"
+			(uuid "3f7e5672-241f-43b6-a4f5-4a6c3d24a462")
+		)
+		(pin "4"
+			(uuid "dbc7ba23-b973-4d26-9a8b-1bbc5cfab260")
+		)
+		(instances
+			(project "TIC"
+				(path "/f375151a-a6f3-4de0-8860-ae8477131e87/4d3026cb-fd7b-4dc0-ac89-89d7222a15ee"
+					(reference "FL1")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "Device:C_Small")
 		(at 29.21 26.67 180)
 		(unit 1)
@@ -13126,6 +13344,85 @@
 			(project "TIC"
 				(path "/f375151a-a6f3-4de0-8860-ae8477131e87/4d3026cb-fd7b-4dc0-ac89-89d7222a15ee"
 					(reference "D3")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:R_US")
+		(at 101.6 166.37 180)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "68cf0ea8-08c0-49df-ac61-4425b18202d4")
+		(property "Reference" "R58"
+			(at 103.378 164.084 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "10k"
+			(at 103.378 167.894 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "Resistor_SMD:R_0805_2012Metric"
+			(at 100.584 166.116 90)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 101.6 166.37 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Resistor, US symbol"
+			(at 101.6 166.37 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "2"
+			(uuid "ab96bf73-abd3-4e71-8eed-b1025a1aae86")
+		)
+		(pin "1"
+			(uuid "a1c5ac28-711d-414c-9c40-aa3e6a7df22b")
+		)
+		(instances
+			(project "TIC"
+				(path "/f375151a-a6f3-4de0-8860-ae8477131e87/4d3026cb-fd7b-4dc0-ac89-89d7222a15ee"
+					(reference "R58")
 					(unit 1)
 				)
 			)
@@ -14560,114 +14857,6 @@
 			(project "TIC"
 				(path "/f375151a-a6f3-4de0-8860-ae8477131e87/4d3026cb-fd7b-4dc0-ac89-89d7222a15ee"
 					(reference "#PWR0117")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "Filter:Choke_CommonMode_FerriteCore_1423")
-		(at 241.3 119.38 0)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(fields_autoplaced yes)
-		(uuid "ac938050-ba10-4a63-ad00-363e8b013745")
-		(property "Reference" "FL1"
-			(at 241.173 111.76 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "ACT45B-510-2P-TL003"
-			(at 241.173 114.3 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" "Inductor_SMD:L_CommonModeChoke_Coilank_ACM3216"
-			(at 241.3 125.73 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 241.3 127.635 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "Generic common-mode choke, ferrite core, 1423 pin order"
-			(at 241.3 119.38 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Field5" "TDK ACT45B-510-2P-TL003"
-			(at 241.3 119.38 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Field6" ""
-			(at 241.3 119.38 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "2"
-			(uuid "d028cfa8-79e4-48b5-aab7-454abdfdef92")
-		)
-		(pin "1"
-			(uuid "c511c427-338f-4935-88ba-7e19b9a1d472")
-		)
-		(pin "3"
-			(uuid "6571307f-c0e6-4ac3-822d-527a4109d96a")
-		)
-		(pin "4"
-			(uuid "10b96c83-055d-494a-8a72-ff338d74fa36")
-		)
-		(instances
-			(project "TIC"
-				(path "/f375151a-a6f3-4de0-8860-ae8477131e87/4d3026cb-fd7b-4dc0-ac89-89d7222a15ee"
-					(reference "FL1")
 					(unit 1)
 				)
 			)
