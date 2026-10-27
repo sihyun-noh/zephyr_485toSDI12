@@ -15,4 +15,6 @@ target_sources(app PRIVATE
     src/settings_shell.c
     src/controller_state.c
     src/controller_shell.c
+    src/can_protocol.c
+    src/can_protocol_shell.c
 )

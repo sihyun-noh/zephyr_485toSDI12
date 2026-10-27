@@ -53,10 +53,19 @@ static bool input_stable[EJECTION_INPUT_COUNT];
 static bool input_candidate[EJECTION_INPUT_COUNT];
 static uint8_t input_candidate_count[EJECTION_INPUT_COUNT];
 static bool initialized;
+static ejection_io_change_callback_t change_callback;
+static void *change_callback_user_data;
 K_MUTEX_DEFINE(output_mutex);
 K_MUTEX_DEFINE(input_mutex);
 K_THREAD_STACK_DEFINE(input_thread_stack, INPUT_THREAD_STACK_SIZE);
 static struct k_thread input_thread_data;
+
+static void notify_change(void)
+{
+	if (change_callback != NULL) {
+		change_callback(change_callback_user_data);
+	}
+}
 
 static void output_off_handler(struct k_work *work)
 {
@@ -65,7 +74,9 @@ static void output_off_handler(struct k_work *work)
 		CONTAINER_OF(delayable, struct output_state, off_work);
 
 	(void)gpio_pin_set_dt(&output_gpios[state->channel], 0);
-	atomic_clear(&state->active);
+	if (atomic_set(&state->active, 0) != 0) {
+		notify_change();
+	}
 }
 
 static void input_thread(void *arg1, void *arg2, void *arg3)
@@ -101,6 +112,7 @@ static void input_thread(void *arg1, void *arg2, void *arg3)
 				input_stable[i] = sample;
 				k_mutex_unlock(&input_mutex);
 				input_candidate_count[i] = 0;
+				notify_change();
 			}
 		}
 
@@ -174,7 +186,11 @@ int ejection_output_set(size_t channel, bool active)
 	(void)k_work_cancel_delayable(&outputs[channel].off_work);
 	int ret = gpio_pin_set_dt(&output_gpios[channel], active ? 1 : 0);
 	if (ret == 0) {
-		atomic_set(&outputs[channel].active, active ? 1 : 0);
+		atomic_val_t previous = atomic_set(&outputs[channel].active,
+						   active ? 1 : 0);
+		if ((previous != 0) != active) {
+			notify_change();
+		}
 	}
 	k_mutex_unlock(&output_mutex);
 	return ret;
@@ -200,9 +216,46 @@ int ejection_output_pulse(size_t channel, uint32_t duration_ms)
 	return 0;
 }
 
+int ejection_output_apply_mask(uint16_t mask)
+{
+	const uint16_t valid_mask = BIT(EJECTION_OUTPUT_COUNT) - 1U;
+
+	if (!initialized) {
+		return -EAGAIN;
+	}
+	if ((mask & ~valid_mask) != 0U) {
+		return -EINVAL;
+	}
+	if (mask != 0U && !controller_state_outputs_allowed()) {
+		return -EACCES;
+	}
+
+	k_mutex_lock(&output_mutex, K_FOREVER);
+	bool changed = false;
+	for (size_t i = 0; i < EJECTION_OUTPUT_COUNT; i++) {
+		(void)k_work_cancel_delayable(&outputs[i].off_work);
+		int ret = gpio_pin_set_dt(&output_gpios[i], (mask & BIT(i)) != 0U);
+
+		if (ret != 0) {
+			k_mutex_unlock(&output_mutex);
+			(void)ejection_output_all_off();
+			return ret;
+		}
+		bool active = (mask & BIT(i)) != 0U;
+		atomic_val_t previous = atomic_set(&outputs[i].active, active ? 1 : 0);
+		changed = changed || ((previous != 0) != active);
+	}
+	k_mutex_unlock(&output_mutex);
+	if (changed) {
+		notify_change();
+	}
+	return 0;
+}
+
 int ejection_output_all_off(void)
 {
 	int result = 0;
+	bool changed = false;
 
 	for (size_t i = 0; i < EJECTION_OUTPUT_COUNT; i++) {
 		(void)k_work_cancel_delayable(&outputs[i].off_work);
@@ -211,7 +264,10 @@ int ejection_output_all_off(void)
 				result = -EIO;
 			}
 		}
-		atomic_clear(&outputs[i].active);
+		changed = changed || atomic_set(&outputs[i].active, 0) != 0;
+	}
+	if (changed) {
+		notify_change();
 	}
 	return result;
 }
@@ -220,6 +276,18 @@ bool ejection_output_get(size_t channel)
 {
 	return channel < EJECTION_OUTPUT_COUNT &&
 	       atomic_get(&outputs[channel].active) != 0;
+}
+
+uint16_t ejection_output_mask_get(void)
+{
+	uint16_t mask = 0U;
+
+	for (size_t i = 0; i < EJECTION_OUTPUT_COUNT; i++) {
+		if (atomic_get(&outputs[i].active) != 0) {
+			mask |= BIT(i);
+		}
+	}
+	return mask;
 }
 
 bool ejection_output_any_active(void)
@@ -243,4 +311,11 @@ bool ejection_input_get(size_t channel)
 	value = input_stable[channel];
 	k_mutex_unlock(&input_mutex);
 	return value;
+}
+
+void ejection_io_set_change_callback(ejection_io_change_callback_t callback,
+				     void *user_data)
+{
+	change_callback = callback;
+	change_callback_user_data = user_data;
 }

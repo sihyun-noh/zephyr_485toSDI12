@@ -42,12 +42,13 @@ static int cmd_status(const struct shell *sh, size_t argc, char **argv)
 	shell_print(sh, "entered_at=%lld ms state_age=%lld ms",
 		    snapshot.entered_at_ms,
 		    k_uptime_get() - snapshot.entered_at_ms);
-	shell_print(sh, "required: IO=%u SETTINGS=%u CAN=%u ENCODER=%u; OLED=%u",
+	shell_print(sh, "required: IO=%u SETTINGS=%u CAN=%u ENCODER=%u; OLED=%u RUN_OK=%u",
 		    snapshot.prerequisites.io_ready ? 1U : 0U,
 		    snapshot.prerequisites.settings_ready ? 1U : 0U,
 		    snapshot.prerequisites.can_ready ? 1U : 0U,
 		    snapshot.prerequisites.encoder_ready ? 1U : 0U,
-		    snapshot.prerequisites.oled_ready ? 1U : 0U);
+		    snapshot.prerequisites.oled_ready ? 1U : 0U,
+		    snapshot.run_permitted ? 1U : 0U);
 	return 0;
 }
 

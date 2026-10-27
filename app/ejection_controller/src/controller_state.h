@@ -24,9 +24,10 @@ enum controller_fault {
 	CONTROLLER_FAULT_INVALID_CONFIG,
 	CONTROLLER_FAULT_CAN_TIMEOUT,
 	CONTROLLER_FAULT_CAN_BUS_OFF,
-	CONTROLLER_FAULT_OUTPUT_TIMEOUT,
 	CONTROLLER_FAULT_EMERGENCY_STOP,
 };
+
+typedef void (*controller_state_change_callback_t)(void *user_data);
 
 struct controller_prerequisites {
 	bool io_ready;
@@ -41,6 +42,7 @@ struct controller_state_snapshot {
 	enum controller_state previous_state;
 	enum controller_fault fault;
 	struct controller_prerequisites prerequisites;
+	bool run_permitted;
 	uint32_t sequence;
 	int64_t entered_at_ms;
 };
@@ -48,6 +50,7 @@ struct controller_state_snapshot {
 void controller_state_init(void);
 void controller_state_set_prerequisites(
 	const struct controller_prerequisites *prerequisites);
+void controller_state_set_run_permission(bool permitted);
 int controller_state_transition(enum controller_state next);
 int controller_state_enter_fault(enum controller_fault fault);
 int controller_state_clear_fault(void);
@@ -55,5 +58,7 @@ void controller_state_get(struct controller_state_snapshot *snapshot);
 bool controller_state_outputs_allowed(void);
 const char *controller_state_name(enum controller_state state);
 const char *controller_fault_name(enum controller_fault fault);
+void controller_state_set_change_callback(
+	controller_state_change_callback_t callback, void *user_data);
 
 #endif /* CONTROLLER_STATE_H_ */

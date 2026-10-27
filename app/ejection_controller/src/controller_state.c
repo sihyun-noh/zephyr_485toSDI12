@@ -9,6 +9,8 @@
 #include <zephyr/kernel.h>
 
 static struct controller_state_snapshot current;
+static controller_state_change_callback_t change_callback;
+static void *change_callback_user_data;
 K_MUTEX_DEFINE(state_mutex);
 
 static bool required_devices_ready(void)
@@ -50,6 +52,9 @@ static void commit_state(enum controller_state next)
 	current.state = next;
 	current.sequence++;
 	current.entered_at_ms = k_uptime_get();
+	if (change_callback != NULL) {
+		change_callback(change_callback_user_data);
+	}
 }
 
 void controller_state_init(void)
@@ -90,6 +95,8 @@ int controller_state_transition(enum controller_state next)
 		    next == CONTROLLER_STATE_RUNNING) &&
 		   !required_devices_ready()) {
 		ret = -EHOSTDOWN;
+	} else if (next == CONTROLLER_STATE_RUNNING && !current.run_permitted) {
+		ret = -ENOTCONN;
 	} else {
 		commit_state(next);
 	}
@@ -99,6 +106,13 @@ int controller_state_transition(enum controller_state next)
 		(void)ejection_output_all_off();
 	}
 	return ret;
+}
+
+void controller_state_set_run_permission(bool permitted)
+{
+	k_mutex_lock(&state_mutex, K_FOREVER);
+	current.run_permitted = permitted;
+	k_mutex_unlock(&state_mutex);
 }
 
 int controller_state_enter_fault(enum controller_fault fault)
@@ -186,8 +200,16 @@ const char *controller_fault_name(enum controller_fault fault)
 	case CONTROLLER_FAULT_INVALID_CONFIG: return "INVALID_CONFIG";
 	case CONTROLLER_FAULT_CAN_TIMEOUT: return "CAN_TIMEOUT";
 	case CONTROLLER_FAULT_CAN_BUS_OFF: return "CAN_BUS_OFF";
-	case CONTROLLER_FAULT_OUTPUT_TIMEOUT: return "OUTPUT_TIMEOUT";
 	case CONTROLLER_FAULT_EMERGENCY_STOP: return "EMERGENCY_STOP";
 	default: return "UNKNOWN";
 	}
+}
+
+void controller_state_set_change_callback(
+	controller_state_change_callback_t callback, void *user_data)
+{
+	k_mutex_lock(&state_mutex, K_FOREVER);
+	change_callback = callback;
+	change_callback_user_data = user_data;
+	k_mutex_unlock(&state_mutex);
 }

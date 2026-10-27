@@ -13,6 +13,7 @@
 #include "ejection_settings.h"
 #include "phase3_devices.h"
 #include "controller_state.h"
+#include "can_protocol.h"
 
 #define USB_DTR_WAIT_MS 3000
 
@@ -50,7 +51,7 @@ int main(void)
 	int phase3_ret = phase3_devices_init();
 	struct phase3_status phase3_status;
 	phase3_status_get(&phase3_status);
-	const struct controller_prerequisites prerequisites = {
+	struct controller_prerequisites prerequisites = {
 		.io_ready = ret == 0,
 		.settings_ready = settings_ret == 0,
 		.can_ready = phase3_status.can_ready,
@@ -70,6 +71,12 @@ int main(void)
 	} else {
 		(void)controller_state_transition(CONTROLLER_STATE_IDLE);
 	}
+	int protocol_ret = phase3_status.can_ready ? can_protocol_init() : -ENODEV;
+	if (protocol_ret != 0) {
+		prerequisites.can_ready = false;
+		controller_state_set_prerequisites(&prerequisites);
+		(void)controller_state_enter_fault(CONTROLLER_FAULT_CAN_INIT);
+	}
 	phase3_ui_refresh();
 	struct controller_state_snapshot controller;
 	controller_state_get(&controller);
@@ -85,10 +92,13 @@ int main(void)
 	printk("Controller: %s, fault: %s\r\n",
 	       controller_state_name(controller.state),
 	       controller_fault_name(controller.fault));
+	printk("CAN protocol: %s (%d)\r\n",
+	       protocol_ret == 0 ? "ready" : "error", protocol_ret);
 	printk("Type 'ejection status'. Outputs remain off until commanded.\r\n");
 	printk("Type 'phase3 status' for CAN/OLED/encoder state.\r\n");
 	printk("Type 'settings status' for persistent configuration.\r\n");
 	printk("Type 'controller status' for the system state machine.\r\n");
+	printk("Type 'canproto status' for protocol and heartbeat counters.\r\n");
 
 	return 0;
 }

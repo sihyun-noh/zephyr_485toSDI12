@@ -124,10 +124,7 @@ static void encoder_switch_edge(const struct device *port,
   }
 }
 
-static void can_rx_callback(const struct device *dev, struct can_frame *frame,
-                            void *user_data) {
-  ARG_UNUSED(dev);
-  ARG_UNUSED(user_data);
+void phase3_can_observe_rx(const struct can_frame *frame) {
   k_spinlock_key_t key = k_spin_lock(&can_rx_lock);
   last_rx = *frame;
   k_spin_unlock(&can_rx_lock, key);
@@ -173,12 +170,6 @@ static int encoder_init(void) {
 }
 
 static int can_init(void) {
-  static const struct can_filter filter = {
-      .id = 0,
-      .mask = 0,
-      .flags = 0,
-  };
-
   if (!device_is_ready(can_dev)) {
     return -ENODEV;
   }
@@ -194,8 +185,7 @@ static int can_init(void) {
     return ret;
   }
 
-  ret = can_add_rx_filter(can_dev, can_rx_callback, NULL, &filter);
-  return ret < 0 ? ret : 0;
+  return 0;
 }
 
 int phase3_devices_init(void) {

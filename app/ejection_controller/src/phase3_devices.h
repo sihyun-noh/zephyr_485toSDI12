@@ -20,6 +20,7 @@ struct phase3_status {
 };
 
 int phase3_devices_init(void);
+void phase3_can_observe_rx(const struct can_frame *frame);
 void phase3_status_get(struct phase3_status *status);
 int phase3_can_send(uint32_t id, const uint8_t *data, size_t length);
 int phase3_oled_show(const char *line0, const char *line1,
