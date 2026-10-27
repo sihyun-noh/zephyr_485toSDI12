@@ -1,0 +1,10 @@
+sample:
+  name: 12-channel ejection controller bring-up
+tests:
+  app.ejection_controller:
+    platform_allow: agmo_ejection
+    tags:
+      - can
+      - eeprom
+      - gpio
+      - usb

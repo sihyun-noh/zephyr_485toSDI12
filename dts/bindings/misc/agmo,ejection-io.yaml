@@ -1,0 +1,28 @@
+# SPDX-License-Identifier: Apache-2.0
+
+description: GPIO map for the AGMO 12-channel ejection controller
+
+compatible: "agmo,ejection-io"
+
+properties:
+  output-gpios:
+    type: phandle-array
+    required: true
+    description: Twelve isolated ejection output control GPIOs in channel order.
+
+  input-gpios:
+    type: phandle-array
+    required: true
+    description: Fourteen isolated digital input GPIOs in channel order.
+
+  encoder-a-gpios:
+    type: phandle-array
+    required: true
+
+  encoder-b-gpios:
+    type: phandle-array
+    required: true
+
+  encoder-switch-gpios:
+    type: phandle-array
+    required: true

@@ -1,0 +1,63 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+
+#include <zephyr/device.h>
+#include <zephyr/devicetree.h>
+#include <zephyr/drivers/can.h>
+#include <zephyr/drivers/eeprom.h>
+#include <zephyr/drivers/uart.h>
+#include <zephyr/kernel.h>
+#include <zephyr/sys/printk.h>
+#include <zephyr/usb/usb_device.h>
+
+#include "ejection_io.h"
+#include "ejection_settings.h"
+#include "phase3_devices.h"
+
+#define USB_DTR_WAIT_MS 3000
+
+static const struct device *const console_dev =
+	DEVICE_DT_GET(DT_CHOSEN(zephyr_console));
+static const struct device *const can_dev =
+	DEVICE_DT_GET(DT_CHOSEN(zephyr_canbus));
+static const struct device *const eeprom_dev = DEVICE_DT_GET(DT_NODELABEL(eeprom0));
+
+static void start_usb_console(void)
+{
+	uint32_t dtr = 0;
+	int ret = usb_enable(NULL);
+
+	if (ret != 0 && ret != -EALREADY) {
+		return;
+	}
+
+	for (int elapsed = 0; elapsed < USB_DTR_WAIT_MS; elapsed += 100) {
+		(void)uart_line_ctrl_get(console_dev, UART_LINE_CTRL_DTR, &dtr);
+		if (dtr != 0U) {
+			break;
+		}
+		k_sleep(K_MSEC(100));
+	}
+}
+
+int main(void)
+{
+	int ret = ejection_io_init();
+
+	start_usb_console();
+	int settings_ret = ejection_settings_init();
+	int phase3_ret = phase3_devices_init();
+	printk("12ch-ejection-controller bring-up\r\n");
+	printk("GPIO: %s, CAN: %s, EEPROM: %s\r\n",
+	       ret == 0 ? "ready" : "error",
+	       device_is_ready(can_dev) ? "ready" : "error",
+	       device_is_ready(eeprom_dev) ? "ready" : "error");
+	printk("Phase 3 (CAN/OLED/encoder): %s (%d)\r\n",
+	       phase3_ret == 0 ? "ready" : "partial/error", phase3_ret);
+	printk("EEPROM settings: %s (%d)\r\n",
+	       settings_ret == 0 ? "ready" : "error", settings_ret);
+	printk("Type 'ejection status'. Outputs remain off until commanded.\r\n");
+	printk("Type 'phase3 status' for CAN/OLED/encoder state.\r\n");
+	printk("Type 'settings status' for persistent configuration.\r\n");
+
+	return 0;
+}

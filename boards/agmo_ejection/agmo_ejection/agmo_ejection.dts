@@ -1,0 +1,122 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+
+/dts-v1/;
+#include <st/g4/stm32g473Xc.dtsi>
+#include <st/g4/stm32g473r(b-c-e)tx-pinctrl.dtsi>
+#include "agmo_ejection-pinctrl.dtsi"
+
+/ {
+	model = "AGMO 12-channel ejection controller";
+	compatible = "agmo,ejection-controller";
+
+	chosen {
+		zephyr,sram = &sram0;
+		zephyr,flash = &flash0;
+		zephyr,canbus = &fdcan1;
+	};
+
+	ejection_io: ejection-io {
+		compatible = "agmo,ejection-io";
+
+		/* MCU HIGH enables the input LED of each output optocoupler. */
+		output-gpios = <&gpioc 0 GPIO_ACTIVE_HIGH>,
+			       <&gpioc 1 GPIO_ACTIVE_HIGH>,
+			       <&gpioc 2 GPIO_ACTIVE_HIGH>,
+			       <&gpioc 3 GPIO_ACTIVE_HIGH>,
+			       <&gpioa 4 GPIO_ACTIVE_HIGH>,
+			       <&gpioa 5 GPIO_ACTIVE_HIGH>,
+			       <&gpioa 6 GPIO_ACTIVE_HIGH>,
+			       <&gpioa 7 GPIO_ACTIVE_HIGH>,
+			       <&gpioc 4 GPIO_ACTIVE_HIGH>,
+			       <&gpioc 5 GPIO_ACTIVE_HIGH>,
+			       <&gpiob 0 GPIO_ACTIVE_HIGH>,
+			       <&gpiob 1 GPIO_ACTIVE_HIGH>;
+
+		/* TLP293 collectors are pulled up on the MCU side: active is low. */
+		input-gpios = <&gpioa 0 GPIO_ACTIVE_LOW>,
+			      <&gpioa 1 GPIO_ACTIVE_LOW>,
+			      <&gpioa 2 GPIO_ACTIVE_LOW>,
+			      <&gpioa 3 GPIO_ACTIVE_LOW>,
+			      <&gpiob 7 GPIO_ACTIVE_LOW>,
+			      <&gpiob 6 GPIO_ACTIVE_LOW>,
+			      <&gpiob 5 GPIO_ACTIVE_LOW>,
+			      <&gpiob 4 GPIO_ACTIVE_LOW>,
+			      <&gpioa 15 GPIO_ACTIVE_LOW>,
+			      <&gpioc 12 GPIO_ACTIVE_LOW>,
+			      <&gpioc 11 GPIO_ACTIVE_LOW>,
+			      <&gpioc 10 GPIO_ACTIVE_LOW>,
+			      <&gpioc 13 GPIO_ACTIVE_LOW>,
+			      <&gpioc 14 GPIO_ACTIVE_LOW>;
+
+		encoder-a-gpios = <&gpioc 6 GPIO_ACTIVE_HIGH>;
+		encoder-b-gpios = <&gpioc 7 GPIO_ACTIVE_HIGH>;
+		encoder-switch-gpios = <&gpioa 8 GPIO_ACTIVE_LOW>;
+	};
+};
+
+&clk_hsi48 {
+	status = "okay";
+};
+
+&clk_hse {
+	clock-frequency = <DT_FREQ_M(8)>;
+	status = "okay";
+};
+
+&pll {
+	div-m = <2>;
+	mul-n = <85>;
+	div-p = <7>;
+	div-q = <2>;
+	div-r = <2>;
+	clocks = <&clk_hse>;
+	status = "okay";
+};
+
+&rcc {
+	clocks = <&pll>;
+	clock-frequency = <DT_FREQ_M(170)>;
+	ahb-prescaler = <1>;
+	apb1-prescaler = <1>;
+	apb2-prescaler = <1>;
+};
+
+zephyr_udc0: &usb {
+	pinctrl-0 = <&usb_dm_pa11 &usb_dp_pa12>;
+	pinctrl-names = "default";
+	clocks = <&rcc STM32_CLOCK_BUS_APB1 0x00800000>,
+		 <&rcc STM32_SRC_HSI48 CLK48_SEL(0)>;
+	status = "okay";
+};
+
+&fdcan1 {
+	pinctrl-0 = <&fdcan1_rx_pb8 &fdcan1_tx_pb9>;
+	pinctrl-names = "default";
+	clocks = <&rcc STM32_CLOCK_BUS_APB1 0x02000000>,
+		 <&rcc STM32_SRC_PLL_Q FDCAN_SEL(1)>;
+	status = "okay";
+};
+
+&i2c3 {
+	pinctrl-0 = <&i2c3_scl_pc8 &i2c3_sda_pc9>;
+	pinctrl-names = "default";
+	clock-frequency = <400000>;
+	status = "okay";
+
+	eeprom0: eeprom@50 {
+		compatible = "atmel,at24";
+		reg = <0x50>;
+		size = <DT_SIZE_K(32)>;
+		pagesize = <64>;
+		address-width = <16>;
+		timeout = <5>;
+	};
+};
+
+/* Routed to test nets only; keep disabled until a connector/use is defined. */
+&usart1 {
+	pinctrl-0 = <&usart1_tx_pa9 &usart1_rx_pa10>;
+	pinctrl-names = "default";
+	current-speed = <115200>;
+	status = "disabled";
+};

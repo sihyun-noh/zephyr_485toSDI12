@@ -1,0 +1,7 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+
+/*
+ * The STM32 HAL pinctrl file already defines the selected alternate functions.
+ * Keeping this board include makes board-local overrides explicit and provides
+ * a stable place for future drive-strength or low-power pin groups.
+ */

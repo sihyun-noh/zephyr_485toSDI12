@@ -1,0 +1,5 @@
+board:
+  name: agmo_ejection
+  vendor: agmo_ejection
+  socs:
+    - name: stm32g473xx
