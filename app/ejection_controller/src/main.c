@@ -12,6 +12,7 @@
 #include "ejection_io.h"
 #include "ejection_settings.h"
 #include "phase3_devices.h"
+#include "controller_state.h"
 
 #define USB_DTR_WAIT_MS 3000
 
@@ -41,11 +42,37 @@ static void start_usb_console(void)
 
 int main(void)
 {
+	controller_state_init();
 	int ret = ejection_io_init();
 
 	start_usb_console();
 	int settings_ret = ejection_settings_init();
 	int phase3_ret = phase3_devices_init();
+	struct phase3_status phase3_status;
+	phase3_status_get(&phase3_status);
+	const struct controller_prerequisites prerequisites = {
+		.io_ready = ret == 0,
+		.settings_ready = settings_ret == 0,
+		.can_ready = phase3_status.can_ready,
+		.encoder_ready = phase3_status.encoder_ready,
+		.oled_ready = phase3_status.oled_ready,
+	};
+	controller_state_set_prerequisites(&prerequisites);
+	(void)controller_state_transition(CONTROLLER_STATE_SELF_TEST);
+	if (ret != 0) {
+		(void)controller_state_enter_fault(CONTROLLER_FAULT_IO_INIT);
+	} else if (settings_ret != 0) {
+		(void)controller_state_enter_fault(CONTROLLER_FAULT_EEPROM_INIT);
+	} else if (!phase3_status.can_ready) {
+		(void)controller_state_enter_fault(CONTROLLER_FAULT_CAN_INIT);
+	} else if (!phase3_status.encoder_ready) {
+		(void)controller_state_enter_fault(CONTROLLER_FAULT_IO_INIT);
+	} else {
+		(void)controller_state_transition(CONTROLLER_STATE_IDLE);
+	}
+	phase3_ui_refresh();
+	struct controller_state_snapshot controller;
+	controller_state_get(&controller);
 	printk("12ch-ejection-controller bring-up\r\n");
 	printk("GPIO: %s, CAN: %s, EEPROM: %s\r\n",
 	       ret == 0 ? "ready" : "error",
@@ -55,9 +82,13 @@ int main(void)
 	       phase3_ret == 0 ? "ready" : "partial/error", phase3_ret);
 	printk("EEPROM settings: %s (%d)\r\n",
 	       settings_ret == 0 ? "ready" : "error", settings_ret);
+	printk("Controller: %s, fault: %s\r\n",
+	       controller_state_name(controller.state),
+	       controller_fault_name(controller.fault));
 	printk("Type 'ejection status'. Outputs remain off until commanded.\r\n");
 	printk("Type 'phase3 status' for CAN/OLED/encoder state.\r\n");
 	printk("Type 'settings status' for persistent configuration.\r\n");
+	printk("Type 'controller status' for the system state machine.\r\n");
 
 	return 0;
 }

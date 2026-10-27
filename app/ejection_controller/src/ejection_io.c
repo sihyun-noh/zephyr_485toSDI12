@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 
 #include "ejection_io.h"
+#include "controller_state.h"
 
 #include <errno.h>
 #include <zephyr/device.h>
@@ -165,6 +166,9 @@ int ejection_output_set(size_t channel, bool active)
 	if (channel >= EJECTION_OUTPUT_COUNT) {
 		return -EINVAL;
 	}
+	if (active && !controller_state_outputs_allowed()) {
+		return -EACCES;
+	}
 
 	k_mutex_lock(&output_mutex, K_FOREVER);
 	(void)k_work_cancel_delayable(&outputs[channel].off_work);
@@ -216,6 +220,16 @@ bool ejection_output_get(size_t channel)
 {
 	return channel < EJECTION_OUTPUT_COUNT &&
 	       atomic_get(&outputs[channel].active) != 0;
+}
+
+bool ejection_output_any_active(void)
+{
+	for (size_t i = 0; i < EJECTION_OUTPUT_COUNT; i++) {
+		if (atomic_get(&outputs[i].active) != 0) {
+			return true;
+		}
+	}
+	return false;
 }
 
 bool ejection_input_get(size_t channel)

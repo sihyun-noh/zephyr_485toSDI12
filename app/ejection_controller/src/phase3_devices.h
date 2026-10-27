@@ -24,5 +24,6 @@ void phase3_status_get(struct phase3_status *status);
 int phase3_can_send(uint32_t id, const uint8_t *data, size_t length);
 int phase3_oled_show(const char *line0, const char *line1,
 		     const char *line2, const char *line3);
+void phase3_ui_refresh(void);
 
 #endif /* PHASE3_DEVICES_H_ */

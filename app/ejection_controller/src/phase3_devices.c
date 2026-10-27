@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 
 #include "phase3_devices.h"
+#include "controller_state.h"
 #include "ejection_settings.h"
 
 #include <errno.h>
@@ -67,7 +68,9 @@ static void update_oled_work(struct k_work *work) {
   }
 
   struct ejection_settings_state settings;
+  struct controller_state_snapshot controller;
   ejection_settings_get(&settings);
+  controller_state_get(&controller);
   (void)can_get_state(can_dev, &state, &err_cnt);
   snprintk(line1, sizeof(line1), "ENC:%ld KEY:%u",
            (long)atomic_get(&encoder_position) /
@@ -75,8 +78,13 @@ static void update_oled_work(struct k_work *work) {
            atomic_get(&encoder_pressed) != 0 ? 1U : 0U);
   snprintk(line2, sizeof(line2), "CAN:%d RX:%lu", state,
            (unsigned long)atomic_get(&can_rx_count));
-  snprintk(line3, sizeof(line3), "TEC:%u REC:%u", err_cnt.tx_err_cnt,
-           err_cnt.rx_err_cnt);
+  if (controller.state == CONTROLLER_STATE_FAULT) {
+    snprintk(line3, sizeof(line3), "FAULT:%s",
+             controller_fault_name(controller.fault));
+  } else {
+    snprintk(line3, sizeof(line3), "STATE:%s",
+             controller_state_name(controller.state));
+  }
   (void)oled_display_show_text(&oled, "12CH EJECTION", line1, line2, line3);
 }
 
@@ -252,4 +260,8 @@ int phase3_oled_show(const char *line0, const char *line1, const char *line2,
                      const char *line3) {
   return oled_ready ? oled_display_show_text(&oled, line0, line1, line2, line3)
                     : -ENODEV;
+}
+
+void phase3_ui_refresh(void) {
+  (void)k_work_reschedule(&ui_update_work, K_NO_WAIT);
 }

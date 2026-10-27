@@ -17,6 +17,7 @@ int ejection_output_set(size_t channel, bool active);
 int ejection_output_pulse(size_t channel, uint32_t duration_ms);
 int ejection_output_all_off(void);
 bool ejection_output_get(size_t channel);
+bool ejection_output_any_active(void);
 bool ejection_input_get(size_t channel);
 
 #endif /* EJECTION_IO_H_ */

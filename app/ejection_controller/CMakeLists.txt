@@ -13,4 +13,6 @@ target_sources(app PRIVATE
     src/phase3_shell.c
     src/ejection_settings.c
     src/settings_shell.c
+    src/controller_state.c
+    src/controller_shell.c
 )
