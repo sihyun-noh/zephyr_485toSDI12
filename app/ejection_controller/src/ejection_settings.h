@@ -11,6 +11,8 @@ struct ejection_settings_data {
 	uint16_t default_pulse_ms;
 	uint8_t encoder_counts_per_step;
 	uint8_t reserved;
+	uint16_t conveyor_delay_ms;
+	uint16_t ejection_hold_ms;
 };
 
 struct ejection_settings_state {
@@ -25,6 +27,6 @@ int ejection_settings_init(void);
 void ejection_settings_get(struct ejection_settings_state *state);
 int ejection_settings_set(const struct ejection_settings_data *data);
 int ejection_settings_save(void);
-void ejection_settings_defaults(void);
+int ejection_settings_defaults(void);
 
 #endif /* EJECTION_SETTINGS_H_ */

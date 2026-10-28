@@ -1,7 +1,6 @@
 from collections import deque
 from dataclasses import dataclass
 from queue import Empty, Queue
-from threading import Timer
 
 import serial
 from PySide6.QtCore import QThread, Signal
@@ -110,12 +109,6 @@ class CanWorker(QThread):
 
     def enqueue(self, frame: CanFrame) -> None:
         self._tx.put(frame)
-
-    def enqueue_after(self, frame: CanFrame, delay_ms: int) -> None:
-        """Queue a frame independently of the potentially busy GUI event loop."""
-        timer = Timer(delay_ms / 1000.0, self.enqueue, args=(frame,))
-        timer.daemon = True
-        timer.start()
 
     def run(self) -> None:
         connection: serial.Serial | None = None

@@ -17,4 +17,7 @@ target_sources(app PRIVATE
     src/controller_shell.c
     src/can_protocol.c
     src/can_protocol_shell.c
+    src/scheduler_core.c
+    src/ejection_scheduler.c
+    src/ejection_scheduler_shell.c
 )

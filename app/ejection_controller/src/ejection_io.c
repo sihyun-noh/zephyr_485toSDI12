@@ -46,6 +46,7 @@ struct output_state {
 	struct k_work_delayable off_work;
 	atomic_t active;
 	size_t channel;
+	int64_t pulse_deadline;
 };
 
 static struct output_state outputs[EJECTION_OUTPUT_COUNT];
@@ -73,10 +74,20 @@ static void output_off_handler(struct k_work *work)
 	struct output_state *state =
 		CONTAINER_OF(delayable, struct output_state, off_work);
 
+	k_mutex_lock(&output_mutex, K_FOREVER);
+	/* A cancelled work item may already be running. Never let it terminate
+	 * a newer manual pulse or scheduler-owned output.
+	 */
+	if (state->pulse_deadline == 0 || k_uptime_get() < state->pulse_deadline) {
+		k_mutex_unlock(&output_mutex);
+		return;
+	}
+	state->pulse_deadline = 0;
 	(void)gpio_pin_set_dt(&output_gpios[state->channel], 0);
 	if (atomic_set(&state->active, 0) != 0) {
 		notify_change();
 	}
+	k_mutex_unlock(&output_mutex);
 }
 
 static void input_thread(void *arg1, void *arg2, void *arg3)
@@ -183,6 +194,7 @@ int ejection_output_set(size_t channel, bool active)
 	}
 
 	k_mutex_lock(&output_mutex, K_FOREVER);
+	outputs[channel].pulse_deadline = 0;
 	(void)k_work_cancel_delayable(&outputs[channel].off_work);
 	int ret = gpio_pin_set_dt(&output_gpios[channel], active ? 1 : 0);
 	if (ret == 0) {
@@ -208,7 +220,10 @@ int ejection_output_pulse(size_t channel, uint32_t duration_ms)
 		return ret;
 	}
 
+	k_mutex_lock(&output_mutex, K_FOREVER);
+	outputs[channel].pulse_deadline = k_uptime_get() + duration_ms;
 	ret = k_work_reschedule(&outputs[channel].off_work, K_MSEC(duration_ms));
+	k_mutex_unlock(&output_mutex);
 	if (ret < 0) {
 		(void)ejection_output_set(channel, false);
 		return ret;
@@ -233,6 +248,7 @@ int ejection_output_apply_mask(uint16_t mask)
 	k_mutex_lock(&output_mutex, K_FOREVER);
 	bool changed = false;
 	for (size_t i = 0; i < EJECTION_OUTPUT_COUNT; i++) {
+		outputs[i].pulse_deadline = 0;
 		(void)k_work_cancel_delayable(&outputs[i].off_work);
 		int ret = gpio_pin_set_dt(&output_gpios[i], (mask & BIT(i)) != 0U);
 
@@ -257,15 +273,19 @@ int ejection_output_all_off(void)
 	int result = 0;
 	bool changed = false;
 
+	k_mutex_lock(&output_mutex, K_FOREVER);
 	for (size_t i = 0; i < EJECTION_OUTPUT_COUNT; i++) {
+		outputs[i].pulse_deadline = 0;
 		(void)k_work_cancel_delayable(&outputs[i].off_work);
 		if (gpio_is_ready_dt(&output_gpios[i])) {
 			if (gpio_pin_set_dt(&output_gpios[i], 0) != 0) {
 				result = -EIO;
 			}
 		}
-		changed = changed || atomic_set(&outputs[i].active, 0) != 0;
+		atomic_val_t previous = atomic_set(&outputs[i].active, 0);
+		changed = changed || previous != 0;
 	}
+	k_mutex_unlock(&output_mutex);
 	if (changed) {
 		notify_change();
 	}

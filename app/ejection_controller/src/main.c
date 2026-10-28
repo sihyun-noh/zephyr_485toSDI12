@@ -14,6 +14,7 @@
 #include "phase3_devices.h"
 #include "controller_state.h"
 #include "can_protocol.h"
+#include "ejection_scheduler.h"
 
 #define USB_DTR_WAIT_MS 3000
 
@@ -48,6 +49,7 @@ int main(void)
 
 	start_usb_console();
 	int settings_ret = ejection_settings_init();
+	ejection_scheduler_init();
 	int phase3_ret = phase3_devices_init();
 	struct phase3_status phase3_status;
 	phase3_status_get(&phase3_status);
@@ -99,6 +101,7 @@ int main(void)
 	printk("Type 'settings status' for persistent configuration.\r\n");
 	printk("Type 'controller status' for the system state machine.\r\n");
 	printk("Type 'canproto status' for protocol and heartbeat counters.\r\n");
+	printk("Phase 4: 0x101 queues events; use 'scheduler status/history'.\r\n");
 
 	return 0;
 }

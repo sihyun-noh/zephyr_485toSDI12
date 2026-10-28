@@ -1,3 +1,4 @@
+import re
 from datetime import datetime
 
 from PySide6.QtCore import Qt, QTimer
@@ -10,9 +11,11 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QHeaderView,
     QLabel,
+    QLineEdit,
     QMainWindow,
     QMessageBox,
     QPushButton,
+    QSpinBox,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
@@ -32,19 +35,41 @@ from ejection_can_simulator.protocol import (
 )
 
 
+def parse_interval_sequence(text: str) -> list[int]:
+    """Parse comma/whitespace separated inter-frame intervals in milliseconds."""
+    tokens = [token for token in re.split(r"[\s,;]+", text.strip()) if token]
+    if not tokens:
+        raise ValueError("간격을 하나 이상 입력하세요.")
+    try:
+        intervals = [int(token) for token in tokens]
+    except ValueError as exc:
+        raise ValueError("간격은 정수(ms)만 입력할 수 있습니다.") from exc
+    if any(interval < 1 or interval > 10000 for interval in intervals):
+        raise ValueError("각 간격은 1~10000 ms 범위여야 합니다.")
+    return intervals
+
+
 class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
         self.worker: CanWorker | None = None
         self.output_mask = 0
         self.heartbeat_sequence = 0
+        self.batch_timer = QTimer(self)
+        self.batch_timer.setSingleShot(True)
+        self.batch_timer.setTimerType(Qt.PreciseTimer)
+        self.batch_timer.timeout.connect(self._send_batch_next)
+        self.batch_masks: list[int] = []
+        self.batch_intervals = [20]
+        self.batch_remaining = 0
+        self.batch_index = 0
         self.heartbeat_timer = QTimer(self)
         self.heartbeat_timer.setTimerType(Qt.PreciseTimer)
         self.heartbeat_timer.setInterval(100)
         self.heartbeat_timer.timeout.connect(self._send_heartbeat)
         self.channels: list[QCheckBox] = []
         self.indicators: dict[str, QLabel] = {}
-        self.setWindowTitle("12CH Ejection Controller CAN Simulator")
+        self.setWindowTitle("12CH Ejection Controller — Phase 4 예약 시험")
         self.resize(1120, 760)
         self._build_ui()
         self.refresh_ports()
@@ -83,16 +108,16 @@ class MainWindow(QMainWindow):
             status_grid.addWidget(value, index // 3, (index % 3) * 2 + 1)
         layout.addWidget(status_box)
 
-        output_box = QGroupBox("Output command (0x101)")
+        output_box = QGroupBox("0x101 예약 등록 — MOVE/HOLD는 보드 설정 사용, PC 자동 OFF 없음")
         output_grid = QGridLayout(output_box)
         for index in range(12):
             channel = QCheckBox(f"CH{index + 1}")
             self.channels.append(channel)
             output_grid.addWidget(channel, index // 6, index % 6)
-        self.on_button = QPushButton("선택 채널 ON")
-        self.off_selected_button = QPushButton("선택 채널 OFF")
-        self.pulse_button = QPushButton("선택 채널 100 ms Pulse")
-        self.off_button = QPushButton("ALL OFF")
+        self.on_button = QPushButton("선택 채널 1회 예약")
+        self.off_selected_button = QPushButton("선택 채널 반복 예약")
+        self.pulse_button = QPushButton("CH1→CH12 순차 예약")
+        self.off_button = QPushButton("전체 취소 / ALL OFF")
         self.clear_button = QPushButton("선택 해제")
         self.heartbeat_box = QCheckBox("선택 기능: Heartbeat 100 ms")
         buttons = QHBoxLayout()
@@ -102,6 +127,17 @@ class MainWindow(QMainWindow):
         buttons.addStretch()
         buttons.addWidget(self.heartbeat_box)
         output_grid.addLayout(buttons, 2, 0, 1, 6)
+        self.repeat_count = QSpinBox()
+        self.repeat_count.setRange(1, 1000)
+        self.repeat_count.setValue(32)
+        self.repeat_intervals = QLineEdit("20, 10, 50, 30, 100, 20, 56, 20, 43, 80")
+        self.repeat_intervals.setPlaceholderText("예: 20, 10, 50, 30, 100")
+        output_grid.addWidget(QLabel("반복 횟수"), 3, 0)
+        output_grid.addWidget(self.repeat_count, 3, 1)
+        output_grid.addWidget(QLabel("전송 간격 시퀀스 (ms, 반복 적용)"), 3, 2)
+        output_grid.addWidget(self.repeat_intervals, 3, 3, 1, 2)
+        self.batch_label = QLabel("대기")
+        output_grid.addWidget(self.batch_label, 3, 5)
         layout.addWidget(output_box)
 
         self.table = QTableWidget(0, 6)
@@ -117,8 +153,8 @@ class MainWindow(QMainWindow):
         self.refresh_button.clicked.connect(self.refresh_ports)
         self.connect_button.clicked.connect(self.toggle_connection)
         self.on_button.clicked.connect(self.turn_selected_on)
-        self.off_selected_button.clicked.connect(self.turn_selected_off)
-        self.pulse_button.clicked.connect(self.pulse_selected)
+        self.off_selected_button.clicked.connect(self.repeat_selected)
+        self.pulse_button.clicked.connect(self.repeat_sequential)
         self.off_button.clicked.connect(self.all_off)
         self.clear_button.clicked.connect(lambda: [channel.setChecked(False) for channel in self.channels])
         self.heartbeat_box.toggled.connect(self.toggle_heartbeat)
@@ -139,6 +175,8 @@ class MainWindow(QMainWindow):
 
     def toggle_connection(self) -> None:
         if self.worker is not None:
+            self.batch_timer.stop()
+            self.batch_remaining = 0
             self.worker.requestInterruption()
             self.connect_button.setEnabled(False)
             return
@@ -168,9 +206,9 @@ class MainWindow(QMainWindow):
         self.bitrate_combo.setEnabled(not connected)
         self.refresh_button.setEnabled(not connected)
         self._set_controls(connected)
-        if connected:
-            QTimer.singleShot(150, self.all_off)
-        else:
+        if not connected:
+            self.batch_timer.stop()
+            self.batch_remaining = 0
             self.heartbeat_timer.stop()
             self.heartbeat_box.setChecked(False)
 
@@ -191,33 +229,56 @@ class MainWindow(QMainWindow):
     def selected_mask(self) -> int:
         return sum(1 << index for index, channel in enumerate(self.channels) if channel.isChecked())
 
-    def pulse_selected(self) -> None:
+    def repeat_selected(self) -> None:
         mask = self.selected_mask()
         if mask == 0:
             QMessageBox.warning(self, "채널 미선택", "출력 채널을 하나 이상 선택하세요.")
             return
-        self._send(output_frame(mask))
-        self.output_mask = 0
-        if self.worker is not None and self.worker.isRunning():
-            self.worker.enqueue_after(output_frame(0), 100)
+        self._start_batch([mask])
+
+    def repeat_sequential(self) -> None:
+        self._start_batch([1 << index for index in range(12)])
+
+    def _start_batch(self, masks: list[int]) -> None:
+        self.batch_timer.stop()
+        try:
+            self.batch_intervals = parse_interval_sequence(self.repeat_intervals.text())
+        except ValueError as exc:
+            QMessageBox.warning(self, "전송 간격 오류", str(exc))
+            return
+        self.batch_masks = masks
+        self.batch_index = 0
+        self.batch_remaining = self.repeat_count.value()
+        self._send_batch_next()
+
+    def _send_batch_next(self) -> None:
+        if not self.batch_remaining:
+            self.batch_timer.stop()
+            return
+        self._send(output_frame(self.batch_masks[self.batch_index % len(self.batch_masks)]))
+        self.batch_index += 1
+        self.batch_remaining -= 1
+        if not self.batch_remaining:
+            self.batch_timer.stop()
+            self.batch_label.setText(f"전송 {self.batch_index} / 완료")
+            return
+        interval = self.batch_intervals[(self.batch_index - 1) % len(self.batch_intervals)]
+        self.batch_label.setText(
+            f"전송 {self.batch_index} / 남음 {self.batch_remaining} / 다음 {interval} ms"
+        )
+        self.batch_timer.start(interval)
 
     def turn_selected_on(self) -> None:
         mask = self.selected_mask()
         if mask == 0:
             QMessageBox.warning(self, "채널 미선택", "출력 채널을 하나 이상 선택하세요.")
             return
-        self.output_mask |= mask
-        self._send(output_frame(self.output_mask))
-
-    def turn_selected_off(self) -> None:
-        selected = self.selected_mask()
-        if selected == 0:
-            QMessageBox.warning(self, "채널 미선택", "OFF할 채널을 하나 이상 선택하세요.")
-            return
-        self.output_mask &= ~selected
-        self._send(output_frame(self.output_mask))
+        self._send(output_frame(mask))
 
     def all_off(self) -> None:
+        self.batch_timer.stop()
+        self.batch_remaining = 0
+        self.batch_label.setText("전체 취소 요청")
         self.output_mask = 0
         self._send(output_frame(0))
 
@@ -263,12 +324,14 @@ class MainWindow(QMainWindow):
     def _describe(frame: CanFrame) -> str:
         if frame.arbitration_id == OUTPUT_ID:
             mask = frame.data[0] | (frame.data[1] << 8) if len(frame.data) >= 2 else 0
-            return f"Output mask=0x{mask:03X}"
+            return f"예약 / 접수 Echo mask=0x{mask:03X}" if mask else "전체 취소 / Echo"
         if frame.arbitration_id == HEARTBEAT_ID:
             return "Optional heartbeat"
         return "기타 프레임"
 
     def _log(self, direction: str, frame: CanFrame, description: str) -> None:
+        if self.table.rowCount() >= 1000:
+            self.table.removeRow(0)
         row = self.table.rowCount()
         self.table.insertRow(row)
         values = (
@@ -288,8 +351,8 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event) -> None:  # type: ignore[no-untyped-def]
         self.heartbeat_timer.stop()
+        self.batch_timer.stop()
         if self.worker is not None:
-            self.worker.enqueue(output_frame(0))
             self.worker.requestInterruption()
             self.worker.wait(1500)
         event.accept()

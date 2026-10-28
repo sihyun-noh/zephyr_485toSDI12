@@ -2,6 +2,7 @@
 
 #include "ejection_io.h"
 #include "ejection_settings.h"
+#include "ejection_scheduler.h"
 
 #include <errno.h>
 #include <stdlib.h>
@@ -46,7 +47,7 @@ static int cmd_off(const struct shell *sh, size_t argc, char **argv)
 {
 	ARG_UNUSED(argc);
 	ARG_UNUSED(argv);
-	int ret = ejection_output_all_off();
+	int ret = ejection_scheduler_cancel_all();
 
 	if (ret != 0) {
 		shell_error(sh, "all-off failed: %d", ret);
@@ -75,7 +76,7 @@ static int cmd_set(const struct shell *sh, size_t argc, char **argv)
 		return -EINVAL;
 	}
 
-	ret = ejection_output_set(channel, active);
+	ret = ejection_scheduler_manual(channel, active, 0);
 	if (ret != 0) {
 		shell_error(sh, "output command failed: %d", ret);
 		return ret;
@@ -110,7 +111,7 @@ static int cmd_pulse(const struct shell *sh, size_t argc, char **argv)
 		return -ERANGE;
 	}
 
-	ret = ejection_output_pulse(channel, (uint32_t)duration);
+	ret = ejection_scheduler_manual(channel, true, (uint32_t)duration);
 	if (ret != 0) {
 		shell_error(sh, "pulse failed: %d", ret);
 		return ret;

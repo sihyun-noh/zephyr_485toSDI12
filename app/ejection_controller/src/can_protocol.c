@@ -5,6 +5,7 @@
 #include "controller_state.h"
 #include "ejection_io.h"
 #include "phase3_devices.h"
+#include "ejection_scheduler.h"
 
 #include <errno.h>
 #include <string.h>
@@ -16,13 +17,21 @@
 
 #define PROTOCOL_THREAD_STACK_SIZE 1280
 #define PROTOCOL_THREAD_PRIORITY 5
-#define PROTOCOL_RX_QUEUE_DEPTH 16
+#define PROTOCOL_RX_QUEUE_DEPTH 64
 
 static const struct device *const can_dev =
 	DEVICE_DT_GET(DT_CHOSEN(zephyr_canbus));
 
-K_MSGQ_DEFINE(protocol_rx_queue, sizeof(struct can_frame),
+struct protocol_rx {
+	struct can_frame frame;
+	int64_t rx_at;
+	uint32_t epoch;
+};
+K_MSGQ_DEFINE(protocol_rx_queue, sizeof(struct protocol_rx),
 	      PROTOCOL_RX_QUEUE_DEPTH, 4);
+/* ALL OFF never competes for the bounded data queue's last slot. */
+K_MSGQ_DEFINE(protocol_cancel_queue, sizeof(struct protocol_rx), 1, 4);
+K_SEM_DEFINE(protocol_rx_wake, 0, 1);
 K_THREAD_STACK_DEFINE(protocol_thread_stack, PROTOCOL_THREAD_STACK_SIZE);
 static struct k_thread protocol_thread_data;
 static struct k_work_delayable status_work;
@@ -88,11 +97,28 @@ static void protocol_rx_callback(const struct device *dev,
 {
 	ARG_UNUSED(dev);
 	ARG_UNUSED(user_data);
+	struct protocol_rx rx = {
+		.frame = *frame,
+		.rx_at = k_uptime_get(),
+		.epoch = ejection_scheduler_epoch(),
+	};
 	phase3_can_observe_rx(frame);
 	atomic_inc(&rx_count);
-	if (k_msgq_put(&protocol_rx_queue, frame, K_NO_WAIT) != 0) {
+	bool cancel = frame->id == CAN_PROTOCOL_OUTPUT_ID && frame->flags == 0U &&
+		      frame->dlc == 8U;
+	for (size_t i = 0; cancel && i < 8; i++) {
+		cancel = frame->data[i] == 0;
+	}
+	if (cancel) {
+		/* Invalidate pending registrations immediately, even while Echo TX waits. */
+		ejection_scheduler_invalidate();
+		struct protocol_rx discarded;
+		(void)k_msgq_get(&protocol_cancel_queue, &discarded, K_NO_WAIT);
+		(void)k_msgq_put(&protocol_cancel_queue, &rx, K_NO_WAIT);
+	} else if (k_msgq_put(&protocol_rx_queue, &rx, K_NO_WAIT) != 0) {
 		atomic_inc(&dropped_count);
 	}
+	k_sem_give(&protocol_rx_wake);
 }
 
 static bool frame_is_standard_data(const struct can_frame *frame)
@@ -114,7 +140,7 @@ static void status_change_callback(void *user_data)
 	bool active;
 
 	k_mutex_lock(&protocol_mutex, K_FOREVER);
-	active = protocol_status.link_active;
+	active = protocol_status.status_publishing;
 	k_mutex_unlock(&protocol_mutex);
 	if (active) {
 		(void)k_work_reschedule(&status_work, K_NO_WAIT);
@@ -162,8 +188,9 @@ static bool output_frame_valid(const struct can_frame *frame, uint16_t *mask)
 	return true;
 }
 
-static void handle_output_command(const struct can_frame *frame)
+static void handle_output_command(const struct protocol_rx *rx)
 {
+	const struct can_frame *frame = &rx->frame;
 	uint16_t mask;
 
 	if (!output_frame_valid(frame, &mask)) {
@@ -171,7 +198,8 @@ static void handle_output_command(const struct can_frame *frame)
 		return;
 	}
 
-	int ret = ejection_output_apply_mask(mask);
+	int ret = mask == 0U ? ejection_scheduler_cancel_all() :
+		ejection_scheduler_submit(mask, rx->rx_at, rx->epoch);
 	if (ret != 0) {
 		atomic_inc(&reject_count);
 		return;
@@ -194,14 +222,18 @@ static void protocol_thread(void *arg1, void *arg2, void *arg3)
 	ARG_UNUSED(arg1);
 	ARG_UNUSED(arg2);
 	ARG_UNUSED(arg3);
-	struct can_frame frame;
+	struct protocol_rx rx;
 
 	while (true) {
-		(void)k_msgq_get(&protocol_rx_queue, &frame, K_FOREVER);
-		if (frame.id == CAN_PROTOCOL_OUTPUT_ID) {
-			handle_output_command(&frame);
-		} else if (frame.id == CAN_PROTOCOL_HEARTBEAT_ID) {
-			handle_heartbeat(&frame);
+		if (k_msgq_get(&protocol_cancel_queue, &rx, K_NO_WAIT) != 0 &&
+		    k_msgq_get(&protocol_rx_queue, &rx, K_NO_WAIT) != 0) {
+			(void)k_sem_take(&protocol_rx_wake, K_FOREVER);
+			continue;
+		}
+		if (rx.frame.id == CAN_PROTOCOL_OUTPUT_ID) {
+			handle_output_command(&rx);
+		} else if (rx.frame.id == CAN_PROTOCOL_HEARTBEAT_ID) {
+			handle_heartbeat(&rx.frame);
 		}
 	}
 }

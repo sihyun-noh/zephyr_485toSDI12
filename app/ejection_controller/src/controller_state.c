@@ -3,6 +3,7 @@
 #include "controller_state.h"
 
 #include "ejection_io.h"
+#include "ejection_scheduler.h"
 
 #include <errno.h>
 #include <string.h>
@@ -52,6 +53,7 @@ static void commit_state(enum controller_state next)
 	current.state = next;
 	current.sequence++;
 	current.entered_at_ms = k_uptime_get();
+	ejection_scheduler_invalidate();
 	if (change_callback != NULL) {
 		change_callback(change_callback_user_data);
 	}
@@ -103,7 +105,7 @@ int controller_state_transition(enum controller_state next)
 	k_mutex_unlock(&state_mutex);
 
 	if (ret == 0 && next != CONTROLLER_STATE_RUNNING) {
-		(void)ejection_output_all_off();
+		(void)ejection_scheduler_cancel_all();
 	}
 	return ret;
 }
@@ -132,7 +134,7 @@ int controller_state_enter_fault(enum controller_fault fault)
 	k_mutex_unlock(&state_mutex);
 
 	/* Change state first so no new ON command can race the safety shutdown. */
-	return ejection_output_all_off();
+	return ejection_scheduler_cancel_all();
 }
 
 int controller_state_clear_fault(void)

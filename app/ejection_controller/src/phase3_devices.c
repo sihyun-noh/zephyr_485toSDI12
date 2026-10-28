@@ -3,6 +3,7 @@
 #include "phase3_devices.h"
 #include "controller_state.h"
 #include "ejection_settings.h"
+#include "ejection_scheduler.h"
 
 #include <errno.h>
 #include <stdio.h>
@@ -17,6 +18,7 @@
 
 #define IO_NODE DT_NODELABEL(ejection_io)
 #define UI_UPDATE_DELAY_MS 25
+#define UI_SETTING_STEP_MS 10
 
 static const struct device *const can_dev =
     DEVICE_DT_GET(DT_CHOSEN(zephyr_canbus));
@@ -50,6 +52,39 @@ static bool oled_ready;
 static bool encoder_ready;
 static struct can_frame last_rx;
 static struct k_spinlock can_rx_lock;
+static atomic_t selected_setting;
+static atomic_t save_result;
+/* Item 0=STATE, 1=MOVE, 2=HOLD. READY offers START(0)/STOP(1). */
+static atomic_t selected_action;
+
+static const char *ui_action_name(enum controller_state state, bool stop)
+{
+  switch (state) {
+  case CONTROLLER_STATE_IDLE: return "READY";
+  case CONTROLLER_STATE_READY: return stop ? "STOP" : "START";
+  case CONTROLLER_STATE_RUNNING: return "STOP";
+  case CONTROLLER_STATE_FAULT: return "CLEAR";
+  default: return "-";
+  }
+}
+
+static int ui_execute_action(enum controller_state state, bool stop)
+{
+  switch (state) {
+  case CONTROLLER_STATE_IDLE:
+    return controller_state_transition(CONTROLLER_STATE_READY);
+  case CONTROLLER_STATE_READY:
+    return controller_state_transition(stop ? CONTROLLER_STATE_IDLE :
+                                       CONTROLLER_STATE_RUNNING);
+  case CONTROLLER_STATE_RUNNING:
+    return controller_state_transition(CONTROLLER_STATE_IDLE);
+  case CONTROLLER_STATE_FAULT:
+    return controller_state_clear_fault();
+  default: return -EAGAIN;
+  }
+}
+K_THREAD_STACK_DEFINE(config_ui_stack, 1536);
+static struct k_thread config_ui_thread;
 
 static const int8_t quadrature_table[16] = {
     0, -1, 1, 0, 1, 0, 0, -1, -1, 0, 0, 1, 0, 1, -1, 0,
@@ -57,11 +92,10 @@ static const int8_t quadrature_table[16] = {
 
 static void update_oled_work(struct k_work *work) {
   ARG_UNUSED(work);
+  char line0[24];
   char line1[24];
   char line2[24];
   char line3[24];
-  struct can_bus_err_cnt err_cnt = {0};
-  enum can_state state = CAN_STATE_STOPPED;
 
   if (!oled_ready) {
     return;
@@ -71,21 +105,110 @@ static void update_oled_work(struct k_work *work) {
   struct controller_state_snapshot controller;
   ejection_settings_get(&settings);
   controller_state_get(&controller);
-  (void)can_get_state(can_dev, &state, &err_cnt);
-  snprintk(line1, sizeof(line1), "ENC:%ld KEY:%u",
-           (long)atomic_get(&encoder_position) /
-               settings.data.encoder_counts_per_step,
-           atomic_get(&encoder_pressed) != 0 ? 1U : 0U);
-  snprintk(line2, sizeof(line2), "CAN:%d RX:%lu", state,
-           (unsigned long)atomic_get(&can_rx_count));
-  if (controller.state == CONTROLLER_STATE_FAULT) {
+  struct ejection_scheduler_status schedule;
+  ejection_scheduler_get_status(&schedule);
+  int item = controller.state == CONTROLLER_STATE_IDLE ?
+             atomic_get(&selected_setting) : 0;
+  snprintk(line0, sizeof(line0), "%c%s>%s", item == 0 ? '>' : ' ',
+           controller_state_name(controller.state),
+           ui_action_name(controller.state, atomic_get(&selected_action) != 0));
+  snprintk(line1, sizeof(line1), "%cMOVE:%5u ms",
+           item == 1 ? '>' : ' ',
+           settings.data.conveyor_delay_ms);
+  snprintk(line2, sizeof(line2), "%cHOLD:%5u ms %s",
+           item == 2 ? '>' : ' ',
+           settings.data.ejection_hold_ms,
+           atomic_get(&save_result) < 0 ? "ERR" :
+           settings.persistent ? "SAV" : "RAM");
+  if (atomic_get(&save_result) < 0) {
+    snprintk(line3, sizeof(line3), "ACTION ERR:%d",
+             (int)atomic_get(&save_result));
+  } else if (controller.state == CONTROLLER_STATE_FAULT) {
     snprintk(line3, sizeof(line3), "FAULT:%s",
              controller_fault_name(controller.fault));
   } else {
-    snprintk(line3, sizeof(line3), "STATE:%s",
-             controller_state_name(controller.state));
+    snprintk(line3, sizeof(line3), "Q:%02u A:%02u /32",
+             schedule.pending, schedule.active);
   }
-  (void)oled_display_show_text(&oled, "12CH EJECTION", line1, line2, line3);
+  (void)oled_display_show_text(&oled, line0, line1, line2, line3);
+  (void)k_work_reschedule(&ui_update_work, K_MSEC(250));
+}
+
+/* Key is PA8: short release selects; long hold executes STATE or saves settings.
+ * Dedicated thread keeps button debounce out of the display/CAN work queue.
+ */
+static void config_ui_run(void *a, void *b, void *c)
+{
+  ARG_UNUSED(a); ARG_UNUSED(b); ARG_UNUSED(c);
+  int32_t last_position = 0;
+  bool candidate = false, stable = false, long_done = false;
+  uint8_t samples = 0;
+  int64_t pressed_at = 0;
+  uint32_t seen_sequence = 0, press_sequence = 0;
+  int press_item = 0;
+  bool press_action = false;
+  while (true) {
+    struct ejection_settings_state settings;
+    struct controller_state_snapshot state;
+    ejection_settings_get(&settings);
+    controller_state_get(&state);
+    if (state.sequence != seen_sequence) {
+      seen_sequence = state.sequence;
+      atomic_set(&selected_setting, 0);
+      atomic_set(&selected_action, 0);
+      atomic_set(&save_result, 0);
+      /* A state change while held requires a fresh press for the next action. */
+      if (stable) { long_done = true; }
+    }
+    int32_t position = atomic_get(&encoder_position) / settings.data.encoder_counts_per_step;
+    int32_t delta = position - last_position;
+    last_position = position;
+    bool pressed = atomic_get(&encoder_pressed) != 0;
+    int item = atomic_get(&selected_setting);
+    if (!pressed && !stable && delta != 0 && item == 0) {
+      if (state.state == CONTROLLER_STATE_READY) {
+        atomic_set(&selected_action,
+                   (atomic_get(&selected_action) + (delta % 2) + 2) % 2);
+      }
+      atomic_set(&save_result, 0);
+    } else if (!pressed && !stable && state.state == CONTROLLER_STATE_IDLE &&
+               delta != 0 && item != 0) {
+      if (item == 1) {
+        settings.data.conveyor_delay_ms =
+            CLAMP((int32_t)settings.data.conveyor_delay_ms + delta * UI_SETTING_STEP_MS, 0, 10000);
+      } else {
+        settings.data.ejection_hold_ms =
+            CLAMP((int32_t)settings.data.ejection_hold_ms + delta * UI_SETTING_STEP_MS, 1, 1000);
+      }
+      atomic_set(&save_result, ejection_settings_set(&settings.data));
+    }
+    if (pressed != candidate) { candidate = pressed; samples = 1; }
+    else if (samples < 3) { samples++; }
+    if (samples == 3 && stable != candidate) {
+      stable = candidate;
+      if (stable) {
+        pressed_at = k_uptime_get(); long_done = false;
+        press_sequence = state.sequence;
+        press_item = item;
+        press_action = atomic_get(&selected_action) != 0;
+      } else if (!long_done && state.state == CONTROLLER_STATE_IDLE) {
+        atomic_set(&selected_setting, (item + 1) % 3);
+        atomic_set(&save_result, 0);
+      }
+    }
+    if (stable && !long_done && k_uptime_get() - pressed_at >= 1000) {
+      long_done = true;
+      if (state.sequence != press_sequence) {
+        continue;
+      }
+      if (press_item == 0) {
+        atomic_set(&save_result, ui_execute_action(state.state, press_action));
+      } else if (state.state == CONTROLLER_STATE_IDLE) {
+        atomic_set(&save_result, ejection_settings_save());
+      }
+    }
+    k_sleep(K_MSEC(20));
+  }
 }
 
 static void encoder_edge(const struct device *port, struct gpio_callback *cb,
@@ -106,7 +229,6 @@ static void encoder_edge(const struct device *port, struct gpio_callback *cb,
   encoder_state = next;
   if (delta != 0) {
     atomic_add(&encoder_position, delta);
-    (void)k_work_reschedule(&ui_update_work, K_MSEC(UI_UPDATE_DELAY_MS));
   }
 }
 
@@ -120,7 +242,6 @@ static void encoder_switch_edge(const struct device *port,
 
   if (pressed >= 0) {
     atomic_set(&encoder_pressed, pressed != 0);
-    (void)k_work_reschedule(&ui_update_work, K_MSEC(UI_UPDATE_DELAY_MS));
   }
 }
 
@@ -129,7 +250,6 @@ void phase3_can_observe_rx(const struct can_frame *frame) {
   last_rx = *frame;
   k_spin_unlock(&can_rx_lock, key);
   atomic_inc(&can_rx_count);
-  (void)k_work_reschedule(&ui_update_work, K_MSEC(UI_UPDATE_DELAY_MS));
 }
 
 static int encoder_init(void) {
@@ -209,6 +329,12 @@ int phase3_devices_init(void) {
     first_error = ret;
   }
   (void)k_work_reschedule(&ui_update_work, K_MSEC(UI_UPDATE_DELAY_MS));
+  if (encoder_ready) {
+    k_thread_create(&config_ui_thread, config_ui_stack,
+                    K_THREAD_STACK_SIZEOF(config_ui_stack), config_ui_run,
+                    NULL, NULL, NULL, 7, 0, K_NO_WAIT);
+    k_thread_name_set(&config_ui_thread, "ejection_config_ui");
+  }
   return first_error;
 }
 

@@ -5,8 +5,9 @@ Waveshare USB-CAN-A를 사용하여 12채널 Ejection Controller를 시험하는
 ## Features
 
 - Standard CAN 11-bit, 125/250/500/1000 kbit/s selectable before connection
-- `0x101` 업체 호환 12채널 절대 출력 명령
-- 선택 채널 ON/OFF, 100 ms pulse 및 ALL OFF
+- `0x101` 기존 payload를 사용하는 12채널 예약 등록 (Phase 4 의미)
+- 선택 채널 1회/반복 예약, CH1→CH12 순차 예약, 전체 취소
+- 쉼표 또는 공백으로 입력하는 가변 전송 간격 시퀀스와 반복 적용
 - 선택 기능인 `0x102` heartbeat
 - `0x201` FSM, fault, 14입력, 12출력과 health 표시
 - 전체 CAN 송수신 로그
@@ -27,12 +28,25 @@ cd /Users/sihyun.noh/project/zephyr_workspace/my-workspace/example-application/t
 
 ## Firmware operation
 
-정상 운전은 heartbeat 없이 동작합니다.
+정상 운전은 heartbeat 없이 동작합니다. IDLE에서 보드의 공통 시간을 설정합니다.
 
 ```text
+settings set conveyor_delay_ms 500
+settings set ejection_hold_ms 100
+settings save
 controller ready
 controller start
 ```
+
+PC는 자동 OFF를 보내지 않습니다. 유지시간이 지나면 보드가 출력을 끕니다.
+전체 0 마스크는 예약 전체 취소입니다. 같은 nonzero 마스크도 매번 새 이벤트입니다.
+반복 횟수 기본값은 32회입니다. 전송 간격에는 `20, 10, 50, 30, 100`처럼 쉼표 또는 공백으로 여러 값을 입력할 수 있습니다. 첫 프레임은 즉시 전송하고, 이후 프레임 사이에 입력 간격을 순서대로 적용하며 끝까지 사용하면 처음부터 반복합니다. 각 값의 범위는 1~10000ms입니다.
+PC GUI/USB 스케줄링을 사용하므로 정밀 시간은 보장하지 않으며, 실제 간격은 송신 로그의 시간으로 확인하세요.
+32개가 모두 쌓이는 시험은 보드 MOVE를 5000ms로 설정하고 `scheduler status/history`로 확인하세요.
+Echo는 Queue 접수 확인이며 실제 타격 완료가 아닙니다.
+연결/연결 해제/창 닫기 시 자동 OFF를 보내지 않으므로 보드 예약이 유지됩니다.
+초기 상태 표시가 필요하면 `canproto status_send`를 실행하세요.
+사용법과 검증 범위는 프로젝트 `app/ejection_controller/README_PHASE4.md`를 참고하세요.
 
 Enable heartbeat gating only when deliberately testing it:
 
