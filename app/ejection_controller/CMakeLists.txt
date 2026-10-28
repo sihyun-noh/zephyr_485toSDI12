@@ -10,14 +10,10 @@ target_sources(app PRIVATE
     src/ejection_io.c
     src/ejection_shell.c
     src/phase3_devices.c
-    src/phase3_shell.c
     src/ejection_settings.c
-    src/settings_shell.c
     src/controller_state.c
-    src/controller_shell.c
     src/can_protocol.c
-    src/can_protocol_shell.c
     src/scheduler_core.c
     src/ejection_scheduler.c
-    src/ejection_scheduler_shell.c
+    src/manual_control.c
 )

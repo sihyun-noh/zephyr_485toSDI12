@@ -181,7 +181,7 @@ int ejection_io_init(void)
 	return 0;
 }
 
-int ejection_output_set(size_t channel, bool active)
+static int output_set(size_t channel, bool active, bool manual)
 {
 	if (!initialized) {
 		return -EAGAIN;
@@ -189,7 +189,8 @@ int ejection_output_set(size_t channel, bool active)
 	if (channel >= EJECTION_OUTPUT_COUNT) {
 		return -EINVAL;
 	}
-	if (active && !controller_state_outputs_allowed()) {
+	if (active && !(manual ? controller_state_manual_outputs_allowed() :
+			controller_state_outputs_allowed())) {
 		return -EACCES;
 	}
 
@@ -206,6 +207,16 @@ int ejection_output_set(size_t channel, bool active)
 	}
 	k_mutex_unlock(&output_mutex);
 	return ret;
+}
+
+int ejection_output_set(size_t channel, bool active)
+{
+	return output_set(channel, active, false);
+}
+
+int ejection_output_manual_set(size_t channel, bool active)
+{
+	return output_set(channel, active, true);
 }
 
 int ejection_output_pulse(size_t channel, uint32_t duration_ms)
@@ -226,6 +237,29 @@ int ejection_output_pulse(size_t channel, uint32_t duration_ms)
 	k_mutex_unlock(&output_mutex);
 	if (ret < 0) {
 		(void)ejection_output_set(channel, false);
+		return ret;
+	}
+	return 0;
+}
+
+int ejection_output_manual_pulse(size_t channel, uint32_t duration_ms)
+{
+	if (duration_ms < EJECTION_PULSE_MIN_MS ||
+	    duration_ms > EJECTION_PULSE_MAX_MS) {
+		return -ERANGE;
+	}
+
+	int ret = ejection_output_manual_set(channel, true);
+	if (ret != 0) {
+		return ret;
+	}
+
+	k_mutex_lock(&output_mutex, K_FOREVER);
+	outputs[channel].pulse_deadline = k_uptime_get() + duration_ms;
+	ret = k_work_reschedule(&outputs[channel].off_work, K_MSEC(duration_ms));
+	k_mutex_unlock(&output_mutex);
+	if (ret < 0) {
+		(void)ejection_output_manual_set(channel, false);
 		return ret;
 	}
 	return 0;

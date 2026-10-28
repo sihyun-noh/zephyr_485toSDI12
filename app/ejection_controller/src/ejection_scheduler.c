@@ -149,8 +149,8 @@ int ejection_scheduler_manual(size_t channel, bool on, uint32_t pulse_ms)
     if (scheduler_core_count(&core, false) + scheduler_core_count(&core, true)) {
         ret = -EBUSY;
     } else {
-        ret = pulse_ms ? ejection_output_pulse(channel, pulse_ms) :
-                        ejection_output_set(channel, on);
+        ret = pulse_ms ? ejection_output_manual_pulse(channel, pulse_ms) :
+                        ejection_output_manual_set(channel, on);
     }
     k_mutex_unlock(&scheduler_mutex);
     return ret;

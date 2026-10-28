@@ -15,6 +15,16 @@ properties:
     required: true
     description: Fourteen isolated digital input GPIOs in channel order.
 
+  manual-selector-input:
+    type: int
+    required: true
+    description: Zero-based input index selecting manual mode.
+
+  manual-button-count:
+    type: int
+    required: true
+    description: Number of leading inputs mapped one-to-one to outputs in manual mode.
+
   encoder-a-gpios:
     type: phandle-array
     required: true

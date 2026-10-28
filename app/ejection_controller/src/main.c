@@ -15,6 +15,7 @@
 #include "controller_state.h"
 #include "can_protocol.h"
 #include "ejection_scheduler.h"
+#include "manual_control.h"
 
 #define USB_DTR_WAIT_MS 3000
 
@@ -79,6 +80,7 @@ int main(void)
 		controller_state_set_prerequisites(&prerequisites);
 		(void)controller_state_enter_fault(CONTROLLER_FAULT_CAN_INIT);
 	}
+	int manual_ret = ret == 0 ? manual_control_init() : -ENODEV;
 	phase3_ui_refresh();
 	struct controller_state_snapshot controller;
 	controller_state_get(&controller);
@@ -96,12 +98,11 @@ int main(void)
 	       controller_fault_name(controller.fault));
 	printk("CAN protocol: %s (%d)\r\n",
 	       protocol_ret == 0 ? "ready" : "error", protocol_ret);
-	printk("Type 'ejection status'. Outputs remain off until commanded.\r\n");
-	printk("Type 'phase3 status' for CAN/OLED/encoder state.\r\n");
-	printk("Type 'settings status' for persistent configuration.\r\n");
-	printk("Type 'controller status' for the system state machine.\r\n");
-	printk("Type 'canproto status' for protocol and heartbeat counters.\r\n");
-	printk("Phase 4: 0x101 queues events; use 'scheduler status/history'.\r\n");
+	printk("Manual control: %s (%d)\r\n",
+	       manual_ret == 0 ? "ready" : "error", manual_ret);
+	printk("Type 'ejection' to list product commands.\r\n");
+	printk("Use 'ejection status', 'ejection config show', and 'ejection queue status'.\r\n");
+	printk("Development hardware tests are under 'ejection diag'.\r\n");
 
 	return 0;
 }

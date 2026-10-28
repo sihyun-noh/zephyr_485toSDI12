@@ -4,6 +4,7 @@
 
 #include "controller_state.h"
 #include "ejection_io.h"
+#include "manual_control.h"
 #include "phase3_devices.h"
 #include "ejection_scheduler.h"
 
@@ -193,7 +194,7 @@ static void handle_output_command(const struct protocol_rx *rx)
 	const struct can_frame *frame = &rx->frame;
 	uint16_t mask;
 
-	if (!output_frame_valid(frame, &mask)) {
+	if (!output_frame_valid(frame, &mask) || manual_control_is_active()) {
 		atomic_inc(&reject_count);
 		return;
 	}

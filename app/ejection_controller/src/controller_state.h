@@ -56,6 +56,7 @@ int controller_state_enter_fault(enum controller_fault fault);
 int controller_state_clear_fault(void);
 void controller_state_get(struct controller_state_snapshot *snapshot);
 bool controller_state_outputs_allowed(void);
+bool controller_state_manual_outputs_allowed(void);
 const char *controller_state_name(enum controller_state state);
 const char *controller_fault_name(enum controller_fault fault);
 void controller_state_set_change_callback(

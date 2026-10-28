@@ -178,6 +178,18 @@ bool controller_state_outputs_allowed(void)
 	return allowed;
 }
 
+bool controller_state_manual_outputs_allowed(void)
+{
+	bool allowed;
+
+	k_mutex_lock(&state_mutex, K_FOREVER);
+	allowed = current.state == CONTROLLER_STATE_IDLE &&
+		  current.fault == CONTROLLER_FAULT_NONE &&
+		  required_devices_ready();
+	k_mutex_unlock(&state_mutex);
+	return allowed;
+}
+
 const char *controller_state_name(enum controller_state state)
 {
 	switch (state) {

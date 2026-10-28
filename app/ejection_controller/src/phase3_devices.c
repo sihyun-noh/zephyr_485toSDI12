@@ -4,6 +4,7 @@
 #include "controller_state.h"
 #include "ejection_settings.h"
 #include "ejection_scheduler.h"
+#include "manual_control.h"
 
 #include <errno.h>
 #include <stdio.h>
@@ -19,6 +20,7 @@
 #define IO_NODE DT_NODELABEL(ejection_io)
 #define UI_UPDATE_DELAY_MS 25
 #define UI_SETTING_STEP_MS 10
+#define UI_SAVE_NOTICE_MS 2000
 
 static const struct device *const can_dev =
     DEVICE_DT_GET(DT_CHOSEN(zephyr_canbus));
@@ -54,28 +56,31 @@ static struct can_frame last_rx;
 static struct k_spinlock can_rx_lock;
 static atomic_t selected_setting;
 static atomic_t save_result;
-/* Item 0=STATE, 1=MOVE, 2=HOLD. READY offers START(0)/STOP(1). */
-static atomic_t selected_action;
+static atomic_t save_notice_until_ms;
+/* Item 0=STATE, 1=MOVE, 2=HOLD. */
 
-static const char *ui_action_name(enum controller_state state, bool stop)
+static int ui_toggle_auto_state(enum controller_state state)
 {
-  switch (state) {
-  case CONTROLLER_STATE_IDLE: return "READY";
-  case CONTROLLER_STATE_READY: return stop ? "STOP" : "START";
-  case CONTROLLER_STATE_RUNNING: return "STOP";
-  case CONTROLLER_STATE_FAULT: return "CLEAR";
-  default: return "-";
+  if (manual_control_is_active()) {
+    return -EBUSY;
   }
-}
-
-static int ui_execute_action(enum controller_state state, bool stop)
-{
   switch (state) {
-  case CONTROLLER_STATE_IDLE:
-    return controller_state_transition(CONTROLLER_STATE_READY);
+  case CONTROLLER_STATE_IDLE: {
+    int ret = controller_state_transition(CONTROLLER_STATE_READY);
+    if (ret == 0) {
+      ret = controller_state_transition(CONTROLLER_STATE_RUNNING);
+    }
+    if (ret != 0) {
+      struct controller_state_snapshot current;
+      controller_state_get(&current);
+      if (current.state == CONTROLLER_STATE_READY) {
+        (void)controller_state_transition(CONTROLLER_STATE_IDLE);
+      }
+    }
+    return ret;
+  }
   case CONTROLLER_STATE_READY:
-    return controller_state_transition(stop ? CONTROLLER_STATE_IDLE :
-                                       CONTROLLER_STATE_RUNNING);
+    return controller_state_transition(CONTROLLER_STATE_RUNNING);
   case CONTROLLER_STATE_RUNNING:
     return controller_state_transition(CONTROLLER_STATE_IDLE);
   case CONTROLLER_STATE_FAULT:
@@ -107,11 +112,20 @@ static void update_oled_work(struct k_work *work) {
   controller_state_get(&controller);
   struct ejection_scheduler_status schedule;
   ejection_scheduler_get_status(&schedule);
-  int item = controller.state == CONTROLLER_STATE_IDLE ?
-             atomic_get(&selected_setting) : 0;
-  snprintk(line0, sizeof(line0), "%c%s>%s", item == 0 ? '>' : ' ',
-           controller_state_name(controller.state),
-           ui_action_name(controller.state, atomic_get(&selected_action) != 0));
+  bool manual = manual_control_is_active();
+  int item = atomic_get(&selected_setting);
+  if (manual) {
+    snprintk(line0, sizeof(line0), "MANUAL");
+  } else if (controller.state == CONTROLLER_STATE_FAULT) {
+    snprintk(line0, sizeof(line0), "FAULT");
+  } else {
+    /* Keep the detailed BOOT/SELF_TEST/READY states internal. The operator
+     * screen presents only the two automatic operating states.
+     */
+    snprintk(line0, sizeof(line0), "%cAUTO %s",
+             item == 0 ? '>' : ' ',
+             controller.state == CONTROLLER_STATE_RUNNING ? "RUN" : "IDLE");
+  }
   snprintk(line1, sizeof(line1), "%cMOVE:%5u ms",
            item == 1 ? '>' : ' ',
            settings.data.conveyor_delay_ms);
@@ -120,9 +134,15 @@ static void update_oled_work(struct k_work *work) {
            settings.data.ejection_hold_ms,
            atomic_get(&save_result) < 0 ? "ERR" :
            settings.persistent ? "SAV" : "RAM");
-  if (atomic_get(&save_result) < 0) {
-    snprintk(line3, sizeof(line3), "ACTION ERR:%d",
-             (int)atomic_get(&save_result));
+  int save_status = atomic_get(&save_result);
+  bool save_notice = (int32_t)((uint32_t)atomic_get(&save_notice_until_ms) -
+                               k_uptime_get_32()) > 0;
+  if (save_notice && save_status == 0) {
+    snprintk(line3, sizeof(line3), "SETTINGS SAVED");
+  } else if (save_notice && save_status < 0) {
+    snprintk(line3, sizeof(line3), "SAVE FAILED:%d", save_status);
+  } else if (save_status < 0) {
+    snprintk(line3, sizeof(line3), "ACTION ERR:%d", save_status);
   } else if (controller.state == CONTROLLER_STATE_FAULT) {
     snprintk(line3, sizeof(line3), "FAULT:%s",
              controller_fault_name(controller.fault));
@@ -134,7 +154,8 @@ static void update_oled_work(struct k_work *work) {
   (void)k_work_reschedule(&ui_update_work, K_MSEC(250));
 }
 
-/* Key is PA8: short release selects; long hold executes STATE or saves settings.
+/* Key is PA8. Short release selects AUTO FSM/MOVE/HOLD or MANUAL MOVE/HOLD.
+ * Long hold toggles the selected FSM or saves the selected setting.
  * Dedicated thread keeps button debounce out of the display/CAN work queue.
  */
 static void config_ui_run(void *a, void *b, void *c)
@@ -146,16 +167,22 @@ static void config_ui_run(void *a, void *b, void *c)
   int64_t pressed_at = 0;
   uint32_t seen_sequence = 0, press_sequence = 0;
   int press_item = 0;
-  bool press_action = false;
+  bool seen_manual = false;
   while (true) {
     struct ejection_settings_state settings;
     struct controller_state_snapshot state;
     ejection_settings_get(&settings);
     controller_state_get(&state);
+    bool manual = manual_control_is_active();
+    if (manual != seen_manual) {
+      seen_manual = manual;
+      atomic_set(&selected_setting, manual ? 1 : 0);
+      atomic_set(&save_result, 0);
+      if (stable) { long_done = true; }
+    }
     if (state.sequence != seen_sequence) {
       seen_sequence = state.sequence;
-      atomic_set(&selected_setting, 0);
-      atomic_set(&selected_action, 0);
+      atomic_set(&selected_setting, manual ? 1 : 0);
       atomic_set(&save_result, 0);
       /* A state change while held requires a fresh press for the next action. */
       if (stable) { long_done = true; }
@@ -165,13 +192,7 @@ static void config_ui_run(void *a, void *b, void *c)
     last_position = position;
     bool pressed = atomic_get(&encoder_pressed) != 0;
     int item = atomic_get(&selected_setting);
-    if (!pressed && !stable && delta != 0 && item == 0) {
-      if (state.state == CONTROLLER_STATE_READY) {
-        atomic_set(&selected_action,
-                   (atomic_get(&selected_action) + (delta % 2) + 2) % 2);
-      }
-      atomic_set(&save_result, 0);
-    } else if (!pressed && !stable && state.state == CONTROLLER_STATE_IDLE &&
+    if (!pressed && !stable && state.state == CONTROLLER_STATE_IDLE &&
                delta != 0 && item != 0) {
       if (item == 1) {
         settings.data.conveyor_delay_ms =
@@ -190,9 +211,9 @@ static void config_ui_run(void *a, void *b, void *c)
         pressed_at = k_uptime_get(); long_done = false;
         press_sequence = state.sequence;
         press_item = item;
-        press_action = atomic_get(&selected_action) != 0;
-      } else if (!long_done && state.state == CONTROLLER_STATE_IDLE) {
-        atomic_set(&selected_setting, (item + 1) % 3);
+      } else if (!long_done) {
+        int next = manual ? (item == 1 ? 2 : 1) : (item + 1) % 3;
+        atomic_set(&selected_setting, next);
         atomic_set(&save_result, 0);
       }
     }
@@ -202,9 +223,11 @@ static void config_ui_run(void *a, void *b, void *c)
         continue;
       }
       if (press_item == 0) {
-        atomic_set(&save_result, ui_execute_action(state.state, press_action));
+        if (!manual) {
+          atomic_set(&save_result, ui_toggle_auto_state(state.state));
+        }
       } else if (state.state == CONTROLLER_STATE_IDLE) {
-        atomic_set(&save_result, ejection_settings_save());
+        phase3_ui_notify_save(ejection_settings_save());
       }
     }
     k_sleep(K_MSEC(20));
@@ -380,4 +403,11 @@ int phase3_oled_show(const char *line0, const char *line1, const char *line2,
 
 void phase3_ui_refresh(void) {
   (void)k_work_reschedule(&ui_update_work, K_NO_WAIT);
+}
+
+void phase3_ui_notify_save(int result) {
+  atomic_set(&save_result, result);
+  atomic_set(&save_notice_until_ms,
+             (atomic_val_t)(k_uptime_get_32() + UI_SAVE_NOTICE_MS));
+  phase3_ui_refresh();
 }

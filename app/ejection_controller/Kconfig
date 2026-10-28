@@ -1,0 +1,25 @@
+mainmenu "12CH Ejection Controller"
+
+config EJECTION_SHELL_DIAGNOSTICS
+	bool "Enable development diagnostic shell commands"
+	default y
+	help
+	  Enables raw CAN, OLED and device bring-up commands under
+	  the ejection diag namespace. Disable for production builds.
+
+config EJECTION_SHELL_MANUAL_OUTPUT
+	bool "Enable manual output diagnostic commands"
+	default y
+	depends on EJECTION_SHELL_DIAGNOSTICS
+	help
+	  Enables manual set and pulse commands. The handlers allow them only
+	  in IDLE while no scheduler event owns the outputs.
+
+config EJECTION_SHELL_FAULT_INJECTION
+	bool "Enable controller fault injection command"
+	default y
+	depends on EJECTION_SHELL_DIAGNOSTICS
+	help
+	  Enables deliberate emergency-stop fault injection for development.
+
+source "Kconfig.zephyr"

@@ -22,6 +22,10 @@ int ejection_output_set(size_t c, bool on)
 }
 int ejection_output_pulse(size_t c, uint32_t ms)
 { (void)ms; return ejection_output_set(c, true); }
+int ejection_output_manual_set(size_t c, bool on)
+{ return ejection_output_set(c, on); }
+int ejection_output_manual_pulse(size_t c, uint32_t ms)
+{ return ejection_output_pulse(c, ms); }
 void ejection_settings_get(struct ejection_settings_state *s)
 {
     s->data.conveyor_delay_ms = 500;

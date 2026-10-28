@@ -31,31 +31,31 @@ cd /Users/sihyun.noh/project/zephyr_workspace/my-workspace/example-application/t
 정상 운전은 heartbeat 없이 동작합니다. IDLE에서 보드의 공통 시간을 설정합니다.
 
 ```text
-settings set conveyor_delay_ms 500
-settings set ejection_hold_ms 100
-settings save
-controller ready
-controller start
+ejection config set move_ms 500
+ejection config set hold_ms 100
+ejection config save
+ejection ready
+ejection start
 ```
 
 PC는 자동 OFF를 보내지 않습니다. 유지시간이 지나면 보드가 출력을 끕니다.
 전체 0 마스크는 예약 전체 취소입니다. 같은 nonzero 마스크도 매번 새 이벤트입니다.
 반복 횟수 기본값은 32회입니다. 전송 간격에는 `20, 10, 50, 30, 100`처럼 쉼표 또는 공백으로 여러 값을 입력할 수 있습니다. 첫 프레임은 즉시 전송하고, 이후 프레임 사이에 입력 간격을 순서대로 적용하며 끝까지 사용하면 처음부터 반복합니다. 각 값의 범위는 1~10000ms입니다.
 PC GUI/USB 스케줄링을 사용하므로 정밀 시간은 보장하지 않으며, 실제 간격은 송신 로그의 시간으로 확인하세요.
-32개가 모두 쌓이는 시험은 보드 MOVE를 5000ms로 설정하고 `scheduler status/history`로 확인하세요.
+32개가 모두 쌓이는 시험은 보드 MOVE를 5000ms로 설정하고 `ejection queue status/history`로 확인하세요.
 Echo는 Queue 접수 확인이며 실제 타격 완료가 아닙니다.
 연결/연결 해제/창 닫기 시 자동 OFF를 보내지 않으므로 보드 예약이 유지됩니다.
-초기 상태 표시가 필요하면 `canproto status_send`를 실행하세요.
+초기 상태 표시가 필요하면 개발 빌드에서 `ejection diag status_send`를 실행하세요.
 사용법과 검증 범위는 프로젝트 `app/ejection_controller/README_PHASE4.md`를 참고하세요.
 
 Enable heartbeat gating only when deliberately testing it:
 
 ```text
-canproto heartbeat on
+ejection can heartbeat on
 ```
 
 Disable it again:
 
 ```text
-canproto heartbeat off
+ejection can heartbeat off
 ```

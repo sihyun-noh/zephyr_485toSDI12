@@ -7,11 +7,11 @@ Current implementation; hardware waveform and button validation are pending.
 In IDLE, configure common timing (milliseconds):
 
 ```text
-settings set conveyor_delay_ms 500
-settings set ejection_hold_ms 100
-settings save
-controller ready
-controller start
+ejection config set move_ms 500
+ejection config set hold_ms 100
+ejection config save
+ejection ready
+ejection start
 ```
 
 - 0x101, standard DLC 8, D0 + low nibble D1: 12-channel event mask.
@@ -32,18 +32,18 @@ controller start
 ## Shell diagnostics
 
 ```text
-scheduler status
-scheduler list
-scheduler history
-scheduler clear
-canproto status
-controller status
+ejection queue status
+ejection queue list
+ejection queue history
+ejection queue cancel
+ejection can status
+ejection status
 ```
 
 History keeps the last 32 finished/cancelled/missed events. `rx_gap` is the actual
 interval from the previous CAN reception (`-1` for the first displayed entry).
 Completed entries show `delay=actual/planned`, `hold=actual/planned`, and
-`late(on/off)=actual dispatch-due` in milliseconds. `scheduler list` retains the
+`late(on/off)=actual dispatch-due` in milliseconds. `ejection queue list` retains the
 raw T0/on_due/off_due/T1/T2/cancel_at
 timestamps for detailed debugging. These are software dispatch times near GPIO
 application, not measured physical edges. `-1` means an event did not reach that
@@ -82,7 +82,7 @@ Select matching CAN speed, connect, then use:
 
 No automatic OFF is sent on connection, disconnection, or window close.
 Closing the simulator does not cancel reservations already accepted by the board.
-First accepted event starts status publication; use canproto status_send for initial observation.
+First accepted event starts status publication; use `ejection diag status_send` for initial observation in a development build.
 The old PC-timed 100ms Pulse and selected-OFF controls do not apply to Phase 4.
 PC log timestamps and repeat intervals are not precision timing measurements.
 

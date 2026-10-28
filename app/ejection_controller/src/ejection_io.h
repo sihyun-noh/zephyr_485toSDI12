@@ -17,6 +17,8 @@ typedef void (*ejection_io_change_callback_t)(void *user_data);
 int ejection_io_init(void);
 int ejection_output_set(size_t channel, bool active);
 int ejection_output_pulse(size_t channel, uint32_t duration_ms);
+int ejection_output_manual_set(size_t channel, bool active);
+int ejection_output_manual_pulse(size_t channel, uint32_t duration_ms);
 int ejection_output_apply_mask(uint16_t mask);
 int ejection_output_all_off(void);
 uint16_t ejection_output_mask_get(void);

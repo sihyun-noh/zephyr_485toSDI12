@@ -47,6 +47,9 @@
 			      <&gpioc 10 GPIO_ACTIVE_LOW>,
 			      <&gpioc 13 GPIO_ACTIVE_LOW>,
 			      <&gpioc 14 GPIO_ACTIVE_LOW>;
+		/* DI1..DI12 are manual buttons; DI13 selects MANUAL when active. */
+		manual-button-count = <12>;
+		manual-selector-input = <12>;
 
 		encoder-a-gpios = <&gpioc 6 GPIO_ACTIVE_HIGH>;
 		encoder-b-gpios = <&gpioc 7 GPIO_ACTIVE_HIGH>;
