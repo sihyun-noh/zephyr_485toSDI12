@@ -45,6 +45,16 @@ int ejection_scheduler_cancel_all(void)
 }
 int ejection_scheduler_submit(uint16_t mask, int64_t rx_at, uint32_t expected_epoch)
 {
+    struct ejection_settings_state settings;
+    ejection_settings_get(&settings);
+    return ejection_scheduler_submit_timed(mask, rx_at, expected_epoch,
+                                           settings.data.conveyor_delay_ms,
+                                           settings.data.ejection_hold_ms);
+}
+int ejection_scheduler_submit_timed(uint16_t mask, int64_t rx_at,
+                                    uint32_t expected_epoch,
+                                    uint16_t move_ms, uint16_t hold_ms)
+{
     k_mutex_lock(&scheduler_mutex, K_FOREVER);
     reconcile_epoch_locked();
     int ret;
@@ -54,10 +64,7 @@ int ejection_scheduler_submit(uint16_t mask, int64_t rx_at, uint32_t expected_ep
     else if (scheduler_core_count(&core, true) == 0 && ejection_output_any_active()) {
         ret = -EBUSY; /* Manual command currently owns the pins. */
     } else {
-        struct ejection_settings_state settings;
-        ejection_settings_get(&settings);
-        ret = scheduler_core_add(&core, mask, rx_at, settings.data.conveyor_delay_ms,
-                                 settings.data.ejection_hold_ms);
+        ret = scheduler_core_add(&core, mask, rx_at, move_ms, hold_ms);
     }
     if (ret != 0) { rejected++; }
     k_mutex_unlock(&scheduler_mutex);

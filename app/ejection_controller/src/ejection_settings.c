@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 #include "ejection_settings.h"
+#include "ejection_timing.h"
 #include "controller_state.h"
 #include <errno.h>
 #include <stddef.h>
@@ -39,7 +40,8 @@ static struct ejection_settings_state settings_state;
 static off_t last_slot;
 static const struct ejection_settings_data default_settings = {
     .can_bitrate = 250000U, .default_pulse_ms = 50U, .encoder_counts_per_step = 4U,
-    .conveyor_delay_ms = 500U, .ejection_hold_ms = 100U,
+    .conveyor_delay_ms = EJECTION_MOVE_DEFAULT_MS,
+    .ejection_hold_ms = EJECTION_HOLD_DEFAULT_MS,
 };
 static bool editable(void)
 {
@@ -53,8 +55,8 @@ static bool valid(const struct ejection_settings_data *d)
             d->can_bitrate == 500000U || d->can_bitrate == 1000000U) &&
            d->default_pulse_ms >= 5U && d->default_pulse_ms <= 1000U &&
            d->encoder_counts_per_step >= 1U && d->encoder_counts_per_step <= 16U &&
-           d->conveyor_delay_ms <= 10000U &&
-           d->ejection_hold_ms >= 1U && d->ejection_hold_ms <= 1000U;
+           d->conveyor_delay_ms <= EJECTION_MOVE_MAX_MS &&
+           d->ejection_hold_ms <= EJECTION_HOLD_MAX_MS;
 }
 static uint32_t checksum(const struct settings_record *r)
 {
@@ -71,6 +73,22 @@ static int read_record(off_t offset, struct settings_record *r, bool *migrated)
     if (ret != 0) { return ret; }
     *migrated = false;
     if (record_valid(r)) { return 0; }
+    if (r->magic == SETTINGS_MAGIC &&
+        r->format_version == SETTINGS_FORMAT_VERSION &&
+        r->length == sizeof(*r) && r->crc32 == checksum(r)) {
+        struct ejection_settings_data converted = r->data;
+        if (converted.conveyor_delay_ms > EJECTION_MOVE_MAX_MS) {
+            converted.conveyor_delay_ms = EJECTION_MOVE_DEFAULT_MS;
+        }
+        if (converted.ejection_hold_ms > EJECTION_HOLD_MAX_MS) {
+            converted.ejection_hold_ms = EJECTION_HOLD_DEFAULT_MS;
+        }
+        if (valid(&converted)) {
+            r->data = converted;
+            *migrated = true;
+            return 0;
+        }
+    }
     struct legacy_record old;
     memcpy(&old, r, sizeof(old));
     if (old.magic != SETTINGS_MAGIC || old.format_version != 1U ||

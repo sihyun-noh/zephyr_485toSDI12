@@ -5,6 +5,7 @@
 #include "ejection_io.h"
 #include "ejection_scheduler.h"
 #include "ejection_settings.h"
+#include "ejection_timing.h"
 #include "phase3_devices.h"
 #include "manual_control.h"
 
@@ -149,11 +150,11 @@ static int cmd_config_set(const struct shell *sh, size_t argc, char **argv)
 		state.data.encoder_counts_per_step = (uint8_t)value;
 	} else if (strcmp(argv[1], "move_ms") == 0 ||
 		   strcmp(argv[1], "conveyor_delay_ms") == 0) {
-		if (value > 10000U) { return -ERANGE; }
+		if (value > EJECTION_MOVE_MAX_MS) { return -ERANGE; }
 		state.data.conveyor_delay_ms = (uint16_t)value;
 	} else if (strcmp(argv[1], "hold_ms") == 0 ||
 		   strcmp(argv[1], "ejection_hold_ms") == 0) {
-		if (value > 1000U) { return -ERANGE; }
+		if (value > EJECTION_HOLD_MAX_MS) { return -ERANGE; }
 		state.data.ejection_hold_ms = (uint16_t)value;
 	} else {
 		shell_error(sh, "key=can_bitrate|pulse_ms|encoder_cps|move_ms|hold_ms");

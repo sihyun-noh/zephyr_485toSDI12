@@ -6,12 +6,18 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#define CAN_PROTOCOL_CONTROL_ID 0x100U
 #define CAN_PROTOCOL_OUTPUT_ID 0x101U
 #define CAN_PROTOCOL_HEARTBEAT_ID 0x102U
 #define CAN_PROTOCOL_STATUS_ID 0x201U
 #define CAN_PROTOCOL_VERSION 0x01U
 #define CAN_PROTOCOL_STATUS_PERIOD_MS 100U
 #define CAN_PROTOCOL_HEARTBEAT_TIMEOUT_MS 500U
+
+enum can_protocol_control_command {
+	CAN_PROTOCOL_CONTROL_IDLE = 0x00U,
+	CAN_PROTOCOL_CONTROL_RUN = 0x01U,
+};
 
 struct can_protocol_status {
 	bool initialized;

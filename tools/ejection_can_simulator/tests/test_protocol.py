@@ -1,7 +1,14 @@
 import pytest
 
 from ejection_can_simulator.can_adapter import CanFrame, FrameParser, encode_config, encode_frame
-from ejection_can_simulator.protocol import heartbeat_frame, output_frame, parse_status
+from ejection_can_simulator.protocol import (
+    CONTROL_IDLE,
+    CONTROL_RUN,
+    control_frame,
+    heartbeat_frame,
+    output_frame,
+    parse_status,
+)
 
 
 def test_waveshare_config_is_250k_standard() -> None:
@@ -28,14 +35,29 @@ def test_waveshare_config_rejects_unknown_bitrate() -> None:
 
 def test_standard_output_frame_encoding() -> None:
     frame = output_frame(0x0801)
-    assert encode_frame(frame) == bytes.fromhex("AA C8 01 01 01 08 00 00 00 00 00 00 55")
+    assert encode_frame(frame) == bytes.fromhex("AA C8 01 01 01 08 64 00 64 00 00 00 55")
     assert FrameParser().feed(encode_frame(frame)) == [frame]
 
 
 def test_output_range_and_heartbeat() -> None:
     with pytest.raises(ValueError):
         output_frame(0x1000)
+    with pytest.raises(ValueError):
+        output_frame(1, 201, 100)
+    assert output_frame(1, 20, 30).data == bytes.fromhex("01 00 14 00 1E 00 00 00")
+    assert output_frame(0).data == bytes(8)
     assert heartbeat_frame(0x102).data == bytes.fromhex("01 02")
+
+
+def test_control_frame_encoding() -> None:
+    assert control_frame(CONTROL_RUN, 0x2A) == CanFrame(
+        0x100, bytes.fromhex("01 01 2A 00 00 00 00 00")
+    )
+    assert control_frame(CONTROL_IDLE, 0x102).data == bytes.fromhex(
+        "01 00 02 00 00 00 00 00"
+    )
+    with pytest.raises(ValueError):
+        control_frame(2, 0)
 
 
 def test_status_decode() -> None:

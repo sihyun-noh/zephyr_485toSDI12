@@ -43,6 +43,23 @@ static void seed_legacy(void)
     old.crc = crc32_ieee((const uint8_t *)&old, offsetof(struct legacy, crc));
     memcpy(memory + 0x1000, &old, sizeof(old));
 }
+static void seed_v2_out_of_range(void)
+{
+    struct v2_record {
+        uint32_t magic;
+        uint16_t version, size;
+        uint32_t seq;
+        struct ejection_settings_data data;
+        uint32_t crc;
+    } record;
+    _Static_assert(sizeof(record) == 28, "v2 layout");
+    memcpy(&record, memory + 0x1100, sizeof(record));
+    record.data.conveyor_delay_ms = 500;
+    record.data.ejection_hold_ms = 300;
+    record.crc = crc32_ieee((const uint8_t *)&record,
+                            offsetof(struct v2_record, crc));
+    memcpy(memory + 0x1100, &record, sizeof(record));
+}
 int main(void)
 {
     struct ejection_settings_state s;
@@ -52,19 +69,23 @@ int main(void)
     assert(s.ready && !s.persistent && s.sequence == 100);
     assert(s.data.can_bitrate == 500000 && s.data.default_pulse_ms == 70 &&
            s.data.encoder_counts_per_step == 2);
-    assert(s.data.conveyor_delay_ms == 500 && s.data.ejection_hold_ms == 100);
+    assert(s.data.conveyor_delay_ms == 100 && s.data.ejection_hold_ms == 100);
     uint8_t original[24]; memcpy(original, memory + 0x1000, sizeof(original));
     assert(ejection_settings_save() == 0);
     assert(memcmp(original, memory + 0x1000, sizeof(original)) == 0);
     assert(ejection_settings_init() == 0); ejection_settings_get(&s);
     assert(s.persistent && s.sequence == 101);
-    s.data.conveyor_delay_ms = 900; s.data.ejection_hold_ms = 40;
+    seed_v2_out_of_range();
+    assert(ejection_settings_init() == 0); ejection_settings_get(&s);
+    assert(!s.persistent && s.sequence == 101);
+    assert(s.data.conveyor_delay_ms == 100 && s.data.ejection_hold_ms == 100);
+    s.data.conveyor_delay_ms = 200; s.data.ejection_hold_ms = 40;
     assert(ejection_settings_set(&s.data) == 0);
     fail_write = true;
     assert(ejection_settings_save() == -EIO);
     fail_write = false;
     assert(ejection_settings_init() == 0); ejection_settings_get(&s);
-    assert(s.data.conveyor_delay_ms == 500 && s.sequence == 101);
+    assert(s.data.conveyor_delay_ms == 100 && s.sequence == 101);
     state = CONTROLLER_STATE_RUNNING;
     assert(ejection_settings_set(&s.data) == -EBUSY);
     assert(ejection_settings_save() == -EBUSY);
@@ -74,7 +95,11 @@ int main(void)
     assert(ejection_settings_save() == 0);
     assert(ejection_settings_init() == 0); ejection_settings_get(&s);
     assert(s.data.can_bitrate == 250000 && s.sequence == 102);
-    s.data.ejection_hold_ms = 0;
+    s.data.conveyor_delay_ms = 0; s.data.ejection_hold_ms = 0;
+    assert(ejection_settings_set(&s.data) == 0);
+    s.data.conveyor_delay_ms = 201;
+    assert(ejection_settings_set(&s.data) == -EINVAL);
+    s.data.conveyor_delay_ms = 100; s.data.ejection_hold_ms = 201;
     assert(ejection_settings_set(&s.data) == -EINVAL);
     puts("settings: v1 migration, A/B save, torn write recovery, IDLE gate, defaults sequence PASS");
     return 0;

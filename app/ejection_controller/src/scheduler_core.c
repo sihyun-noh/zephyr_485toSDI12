@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 /* Pure time/state logic, independent of Zephyr/GPIO. */
 #include "scheduler_core.h"
+#include "ejection_timing.h"
 #include <errno.h>
 #include <string.h>
 static void retire(struct scheduler_core *c, struct scheduler_event *e)
@@ -20,8 +21,9 @@ size_t scheduler_core_count(const struct scheduler_core *c, bool active)
 int scheduler_core_add(struct scheduler_core *c, uint16_t mask, int64_t rx,
                        uint32_t move, uint32_t hold)
 {
-    if (!mask || (mask & ~0x0fffU) || rx < 0 || move > 10000U ||
-        hold < 1U || hold > 1000U || rx > INT64_MAX - move - hold) {
+    if (!mask || (mask & ~0x0fffU) || rx < 0 ||
+        move > EJECTION_MOVE_MAX_MS || hold > EJECTION_HOLD_MAX_MS ||
+        rx > INT64_MAX - move - hold) {
         return -EINVAL;
     }
     for (size_t i = 0; i < SCHEDULER_CAPACITY; i++) {
@@ -45,7 +47,21 @@ uint16_t scheduler_core_step(struct scheduler_core *c, int64_t now)
     /* Union all active events before GPIO: no glitch at adjacent boundaries. */
     for (size_t i = 0; i < SCHEDULER_CAPACITY; i++) {
         struct scheduler_event *e = &c->events[i];
-        if (e->state == EVENT_PENDING && now >= e->off_due) {
+        if (e->state == EVENT_PENDING && e->on_due == e->off_due &&
+            now >= e->on_due) {
+            e->state = EVENT_COMPLETED;
+            e->on_at = now;
+            e->off_at = now;
+            c->completed++;
+            if (now - e->on_due > c->max_on_late_ms) {
+                c->max_on_late_ms = now - e->on_due;
+            }
+            if (now - e->off_due > c->max_off_late_ms) {
+                c->max_off_late_ms = now - e->off_due;
+            }
+            retire(c, e);
+            continue;
+        } else if (e->state == EVENT_PENDING && now >= e->off_due) {
             e->state = EVENT_MISSED; c->missed++; retire(c, e);
         } else if (e->state == EVENT_PENDING && now >= e->on_due) {
             e->state = EVENT_ACTIVE; e->on_at = now;

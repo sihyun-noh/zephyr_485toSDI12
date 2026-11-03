@@ -2,10 +2,13 @@ from dataclasses import dataclass
 
 from ejection_can_simulator.can_adapter import CanFrame
 
+CONTROL_ID = 0x100
 OUTPUT_ID = 0x101
 HEARTBEAT_ID = 0x102
 STATUS_ID = 0x201
 PROTOCOL_VERSION = 0x01
+CONTROL_IDLE = 0x00
+CONTROL_RUN = 0x01
 
 STATE_NAMES = {0: "BOOT", 1: "SELF_TEST", 2: "IDLE", 3: "READY", 4: "RUNNING", 5: "FAULT"}
 FAULT_NAMES = {
@@ -15,11 +18,27 @@ FAULT_NAMES = {
 }
 
 
-def output_frame(mask: int) -> CanFrame:
+def output_frame(mask: int, move_ms: int = 100, hold_ms: int = 100) -> CanFrame:
     if not 0 <= mask <= 0x0FFF:
         raise ValueError("출력 mask는 CH1~CH12 범위여야 합니다.")
-    data = bytes((mask & 0xFF, (mask >> 8) & 0x0F, 0, 0, 0, 0, 0, 0))
+    if not 0 <= move_ms <= 200 or not 0 <= hold_ms <= 200:
+        raise ValueError("MOVE/HOLD는 0~200 ms 범위여야 합니다.")
+    if mask == 0:
+        return CanFrame(OUTPUT_ID, bytes(8))
+    data = bytes((
+        mask & 0xFF, (mask >> 8) & 0x0F,
+        move_ms & 0xFF, (move_ms >> 8) & 0xFF,
+        hold_ms & 0xFF, (hold_ms >> 8) & 0xFF,
+        0, 0,
+    ))
     return CanFrame(OUTPUT_ID, data)
+
+
+def control_frame(command: int, sequence: int) -> CanFrame:
+    if command not in (CONTROL_IDLE, CONTROL_RUN):
+        raise ValueError("운전 명령은 IDLE 또는 RUN이어야 합니다.")
+    data = bytes((PROTOCOL_VERSION, command, sequence & 0xFF, 0, 0, 0, 0, 0))
+    return CanFrame(CONTROL_ID, data)
 
 
 def heartbeat_frame(sequence: int) -> CanFrame:

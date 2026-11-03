@@ -3,6 +3,7 @@
 #include "phase3_devices.h"
 #include "controller_state.h"
 #include "ejection_settings.h"
+#include "ejection_timing.h"
 #include "ejection_scheduler.h"
 #include "manual_control.h"
 
@@ -19,7 +20,6 @@
 
 #define IO_NODE DT_NODELABEL(ejection_io)
 #define UI_UPDATE_DELAY_MS 25
-#define UI_SETTING_STEP_MS 10
 #define UI_SAVE_NOTICE_MS 2000
 
 static const struct device *const can_dev =
@@ -196,10 +196,14 @@ static void config_ui_run(void *a, void *b, void *c)
                delta != 0 && item != 0) {
       if (item == 1) {
         settings.data.conveyor_delay_ms =
-            CLAMP((int32_t)settings.data.conveyor_delay_ms + delta * UI_SETTING_STEP_MS, 0, 10000);
+            CLAMP((int32_t)settings.data.conveyor_delay_ms +
+                      delta * EJECTION_UI_STEP_MS,
+                  EJECTION_MOVE_MIN_MS, EJECTION_MOVE_MAX_MS);
       } else {
         settings.data.ejection_hold_ms =
-            CLAMP((int32_t)settings.data.ejection_hold_ms + delta * UI_SETTING_STEP_MS, 1, 1000);
+            CLAMP((int32_t)settings.data.ejection_hold_ms +
+                      delta * EJECTION_UI_STEP_MS,
+                  EJECTION_HOLD_MIN_MS, EJECTION_HOLD_MAX_MS);
       }
       atomic_set(&save_result, ejection_settings_set(&settings.data));
     }

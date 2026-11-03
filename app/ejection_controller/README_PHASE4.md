@@ -1,20 +1,27 @@
 # Phase 4 — CAN queued ejection
 
-Current implementation; hardware waveform and button validation are pending.
+Current implementation. The 2026-10-29 field test verified 12-channel output,
+AUTO/MANUAL operation and CAN communication. The 0..200ms timing refinement still
+requires OLED, EEPROM and physical output timing validation on the board.
 
 ## Board operation
 
-In IDLE, configure common timing (milliseconds):
+In IDLE, configure local/manual timing defaults (milliseconds):
 
 ```text
-ejection config set move_ms 500
+ejection config set move_ms 100
 ejection config set hold_ms 100
 ejection config save
 ejection ready
 ejection start
 ```
 
-- 0x101, standard DLC 8, D0 + low nibble D1: 12-channel event mask.
+- 0x100, standard DLC 8: D0 version 1, D1 IDLE(0)/RUN(1), D2 sequence.
+  RUN is accepted in AUTO mode; IDLE cancels reservations and turns all outputs off.
+- 0x101, standard DLC 8: D0 + low nibble D1 event mask, D2..D3 MOVE ms,
+  D4..D5 HOLD ms (uint16 little-endian), D6..D7 zero.
+- MOVE/HOLD are 0..200ms and are captured per accepted event. CAN timing does not
+  overwrite the EEPROM/OLED local settings.
 - Nonzero mask: one event, including identical consecutive masks.
 - Zero mask: cancel all pending/active events and turn all outputs off.
 - Echo means accepted, not mechanically fired.
@@ -53,21 +60,19 @@ The scheduler scans all 32 slots and applies the union of active masks once per 
 ## OLED and encoder
 
 PA8 push button + PC6/PC7 rotary encoder:
-- Top row shows current state and selected action, e.g. >READY>START.
-- In IDLE: short press cycles STATE/MOVE/HOLD.
-- On STATE: rotation selects START/STOP in READY; other states have one action.
-- Hold STATE for 1 second to execute: IDLE→READY, READY→START or STOP,
-  RUNNING→STOP, FAULT→CLEAR. Existing FSM prerequisites apply.
-- On MOVE/HOLD: one decoded encoder step changes 10ms (clamped to bounds);
+- AUTO top row is `>AUTO IDLE` or `>AUTO RUN`; MANUAL top row is `MANUAL`.
+- AUTO short press cycles FSM/MOVE/HOLD. MANUAL short press cycles MOVE/HOLD.
+- Hold FSM for 1 second to toggle AUTO IDLE/RUN. Existing FSM prerequisites apply.
+- On MOVE/HOLD: one decoded encoder step changes 2ms (clamped to bounds);
   hold for 1 second to save EEPROM.
-- READY/RUNNING/FAULT lock selection to STATE; time edits and save are blocked.
+- MOVE/HOLD can be viewed while RUNNING, but edits and save are allowed only in IDLE.
 - One long press executes once. Release and press again for the next state transition.
   Rotation while pressed is ignored; an external state change disarms a held action.
 - OLED: state/action, MOVE, HOLD with RAM/SAV, pending Q and active A.
   Rejected actions show ACTION ERR; faults show their reason.
-- MOVE: 0..10000ms; HOLD: 1..1000ms. These are initial software ranges, not certified valve limits.
+- MOVE: 0..200ms; HOLD: 0..200ms. MOVE=0 dispatches immediately. HOLD=0 completes without energizing an output.
 - Existing pulse_ms remains the independent manual shell pulse default.
-- EEPROM v1 settings migrate in RAM; new MOVE/HOLD defaults are 500/100ms.
+- EEPROM v1 settings migrate in RAM; new MOVE/HOLD defaults are 100/100ms.
   Explicit save writes v2 to the opposite slot; existing records are retained until then.
 - CAN bitrate accepts 125/250/500/1000k. Save and reboot to apply a bitrate change.
 
@@ -75,6 +80,8 @@ PA8 push button + PC6/PC7 rotary encoder:
 
 Restart tools/ejection_can_simulator with ./run.
 Select matching CAN speed, connect, then use:
+- AUTO RUN / IDLE: send 0x100 operating-state control.
+- MOVE/HOLD: enter the per-reservation values (0..200ms).
 - Selected channels: one reservation.
 - Repeated selected channels: configured count and PC send interval.
 - CH1→CH12 sequence: wraps until the count is reached.
@@ -86,9 +93,11 @@ First accepted event starts status publication; use `ejection diag status_send` 
 The old PC-timed 100ms Pulse and selected-OFF controls do not apply to Phase 4.
 PC log timestamps and repeat intervals are not precision timing measurements.
 
-For the 32/33 capacity test, use MOVE=5000ms and a 20ms send interval, so all requests
-arrive before execution starts. 32 should be accepted; the 33rd should increase overflow/reject.
-Inspect shell counters rather than inferring acceptance from TX rows.
+The host test deterministically verifies the 32/33 capacity boundary. A hardware capacity
+test must use MOVE=200ms, HOLD=200ms and a burst sender fast enough to register all 33
+frames before slots retire. The simulator accepts 1ms minimum intervals, but USB serial
+transport timing is not deterministic. Inspect Echo and shell counters rather than inferring
+acceptance from TX rows.
 
 ## Implementation
 
@@ -97,7 +106,7 @@ operations and the deadline thread with one mutex. Submit returns only after slo
 The deadline thread uses k_sem_take with the nearest deadline; submit/cancel wakes it.
 No command mailbox is needed inside the scheduler; the CAN RX queue remains separate.
 A generation counter rejects stale CAN requests across cancellation and state transitions.
-The common settings snapshot is copied per accepted event. GPIO, OLED, EEPROM and CAN roles
+The MOVE/HOLD values carried by 0x101 are copied per accepted event. GPIO, OLED, EEPROM and CAN roles
 remain separated; EEPROM/display never execute in CAN ISR.
 
 ## Host checks

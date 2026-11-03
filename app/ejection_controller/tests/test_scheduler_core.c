@@ -8,19 +8,19 @@ static void timing_and_overlap(void)
 {
     struct scheduler_core c;
     scheduler_core_init(&c);
-    assert(scheduler_core_add(&c, 1, 0, 500, 100) == 0);
-    assert(scheduler_core_add(&c, 2, 40, 500, 100) == 0);
-    assert(scheduler_core_add(&c, 5, 80, 500, 100) == 0);
-    assert(scheduler_core_step(&c, 499) == 0);
-    assert(scheduler_core_step(&c, 500) == 1);
-    assert(scheduler_core_step(&c, 540) == 3);
-    assert(scheduler_core_step(&c, 580) == 7);
-    assert(scheduler_core_step(&c, 600) == 7);
-    assert(scheduler_core_step(&c, 640) == 5);
-    assert(scheduler_core_step(&c, 680) == 0);
+    assert(scheduler_core_add(&c, 1, 0, 100, 100) == 0);
+    assert(scheduler_core_add(&c, 2, 40, 100, 100) == 0);
+    assert(scheduler_core_add(&c, 5, 80, 100, 100) == 0);
+    assert(scheduler_core_step(&c, 99) == 0);
+    assert(scheduler_core_step(&c, 100) == 1);
+    assert(scheduler_core_step(&c, 140) == 3);
+    assert(scheduler_core_step(&c, 180) == 7);
+    assert(scheduler_core_step(&c, 200) == 7);
+    assert(scheduler_core_step(&c, 240) == 5);
+    assert(scheduler_core_step(&c, 280) == 0);
     assert(c.completed == 3 && c.history_count == 3);
-    assert(c.history[0].rx_at == 0 && c.history[0].on_at == 500 &&
-           c.history[0].off_at == 600);
+    assert(c.history[0].rx_at == 0 && c.history[0].on_at == 100 &&
+           c.history[0].off_at == 200);
     assert(scheduler_core_next(&c) == INT64_MAX);
 }
 static void capacity_and_cancel(void)
@@ -28,12 +28,12 @@ static void capacity_and_cancel(void)
     struct scheduler_core c;
     scheduler_core_init(&c);
     for (int i = 0; i < 32; i++) {
-        assert(scheduler_core_add(&c, 1, i, 1000, 100) == 0);
+        assert(scheduler_core_add(&c, 1, i, 200, 100) == 0);
     }
-    assert(scheduler_core_add(&c, 2, 33, 1000, 100) == -ENOSPC);
+    assert(scheduler_core_add(&c, 2, 33, 200, 100) == -ENOSPC);
     assert(c.accepted == 32 && c.overflow == 1 && c.peak == 32);
-    assert(scheduler_core_step(&c, 1000) == 1);
-    assert(scheduler_core_add(&c, 2, 1000, 1, 10) == -ENOSPC);
+    assert(scheduler_core_step(&c, 200) == 1);
+    assert(scheduler_core_add(&c, 2, 200, 1, 10) == -ENOSPC);
     scheduler_core_cancel(&c, 1001);
     assert(c.cancelled == 32 && c.output_mask == 0);
     assert(scheduler_core_step(&c, 5000) == 0);
@@ -60,7 +60,12 @@ static void boundaries_and_lateness(void)
     assert(scheduler_core_add(&c, 0, 500, 0, 1) == -EINVAL);
     assert(scheduler_core_add(&c, 0x1000, 500, 0, 1) == -EINVAL);
     assert(scheduler_core_add(&c, 1, -1, 0, 1) == -EINVAL);
-    assert(scheduler_core_add(&c, 1, 500, 0, 0) == -EINVAL);
+    assert(scheduler_core_add(&c, 1, 500, 0, 0) == 0);
+    assert(scheduler_core_step(&c, 500) == 0);
+    assert(c.completed == 4 && c.missed == 1);
+    assert(c.history[(c.history_count - 1) % SCHEDULER_HISTORY].on_at == 500);
+    assert(scheduler_core_add(&c, 1, 500, 201, 1) == -EINVAL);
+    assert(scheduler_core_add(&c, 1, 500, 1, 201) == -EINVAL);
     assert(scheduler_core_add(&c, 1, INT64_MAX, 1, 1) == -EINVAL);
 }
 static void randomized_reference(void)

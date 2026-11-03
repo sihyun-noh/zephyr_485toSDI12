@@ -28,7 +28,7 @@ int ejection_output_manual_pulse(size_t c, uint32_t ms)
 { return ejection_output_pulse(c, ms); }
 void ejection_settings_get(struct ejection_settings_state *s)
 {
-    s->data.conveyor_delay_ms = 500;
+    s->data.conveyor_delay_ms = 100;
     s->data.ejection_hold_ms = 100;
 }
 int main(void)
@@ -43,8 +43,15 @@ int main(void)
     assert(ejection_scheduler_submit(2, 0, epoch) == -EBUSY);
     assert(ejection_scheduler_manual(0, false, 0) == 0);
     for (int i = 0; i < 32; i++) {
-        assert(ejection_scheduler_submit(1, i, epoch) == 0);
+        int ret = i == 0 ? ejection_scheduler_submit_timed(1, i, epoch, 17, 23) :
+                           ejection_scheduler_submit(1, i, epoch);
+        assert(ret == 0);
     }
+    struct scheduler_event pending[32];
+    size_t pending_count = ejection_scheduler_snapshot(pending, 32, false);
+    assert(pending_count == 32);
+    assert(pending[0].rx_at == 0 && pending[0].on_due == 17 &&
+           pending[0].off_due == 40);
     assert(ejection_scheduler_manual(0, true, 0) == -EBUSY);
     assert(ejection_scheduler_submit(1, 32, epoch) == -ENOSPC);
     ejection_scheduler_get_status(&s);

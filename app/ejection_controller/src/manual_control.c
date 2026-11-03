@@ -130,8 +130,9 @@ static void manual_thread(void *arg1, void *arg2, void *arg3)
 					ejection_settings_get(&settings);
 					for (size_t i = 0; i < MANUAL_BUTTON_COUNT; i++) {
 						if ((rising & BIT(i)) != 0U) {
-							int ret = ejection_scheduler_manual(
-								i, true, settings.data.ejection_hold_ms);
+							int ret = settings.data.ejection_hold_ms == 0U ? 0 :
+								ejection_scheduler_manual(
+									i, true, settings.data.ejection_hold_ms);
 							record_result(i, ret);
 						}
 					}

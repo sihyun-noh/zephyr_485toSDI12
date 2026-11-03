@@ -9,7 +9,7 @@ from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication
 
 from ejection_can_simulator.main_window import MainWindow, parse_interval_sequence
-from ejection_can_simulator.protocol import output_frame
+from ejection_can_simulator.protocol import CONTROL_IDLE, CONTROL_RUN, control_frame, output_frame
 
 
 @pytest.fixture(scope="session")
@@ -51,16 +51,18 @@ def test_queue_ui_does_not_schedule_automatic_off(qapp):
     window._send = sent.append
     window.channels[0].setChecked(True)
     window.channels[2].setChecked(True)
+    window.move_ms.setValue(20)
+    window.hold_ms.setValue(30)
     window.turn_selected_on()
     QTest.qWait(200)
-    assert sent == [output_frame(5)]
+    assert sent == [output_frame(5, 20, 30)]
     window.repeat_count.setValue(32)
     window.repeat_intervals.setText("20, 10, 50")
     window.repeat_selected()
     window.batch_timer.stop()
     while window.batch_remaining:
         window._send_batch_next()
-    assert sent == [output_frame(5)] * 33
+    assert sent == [output_frame(5, 20, 30)] * 33
     window.all_off()
     assert sent[-1] == output_frame(0)
     assert not window.batch_remaining and not window.batch_timer.isActive()
@@ -83,4 +85,14 @@ def test_sequential_and_connection_do_not_cancel_board(qapp):
     assert sent == [output_frame(1 << (i % 12)) for i in range(13)]
     window._connection_changed(False, "")
     assert not window.batch_timer.isActive()
+    dispose(window, qapp)
+
+
+def test_run_idle_controls_use_0x100_and_increment_sequence(qapp):
+    window = MainWindow()
+    sent = []
+    window._send = sent.append
+    window._send_control(CONTROL_RUN)
+    window._send_control(CONTROL_IDLE)
+    assert sent == [control_frame(CONTROL_RUN, 0), control_frame(CONTROL_IDLE, 1)]
     dispose(window, qapp)

@@ -12,6 +12,8 @@ void ejection_scheduler_init(void);
 uint32_t ejection_scheduler_epoch(void);
 void ejection_scheduler_invalidate(void);
 int ejection_scheduler_submit(uint16_t mask, int64_t rx_at, uint32_t epoch);
+int ejection_scheduler_submit_timed(uint16_t mask, int64_t rx_at, uint32_t epoch,
+                                    uint16_t move_ms, uint16_t hold_ms);
 int ejection_scheduler_cancel_all(void);
 void ejection_scheduler_get_status(struct ejection_scheduler_status *status);
 size_t ejection_scheduler_snapshot(struct scheduler_event *events, size_t capacity,

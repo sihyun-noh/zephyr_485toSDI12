@@ -25,10 +25,14 @@ from serial.tools import list_ports
 
 from ejection_can_simulator.can_adapter import CanFrame, CanWorker
 from ejection_can_simulator.protocol import (
+    CONTROL_ID,
+    CONTROL_IDLE,
+    CONTROL_RUN,
     HEARTBEAT_ID,
     OUTPUT_ID,
     STATUS_ID,
     EjectionStatus,
+    control_frame,
     heartbeat_frame,
     output_frame,
     parse_status,
@@ -55,6 +59,7 @@ class MainWindow(QMainWindow):
         self.worker: CanWorker | None = None
         self.output_mask = 0
         self.heartbeat_sequence = 0
+        self.control_sequence = 0
         self.batch_timer = QTimer(self)
         self.batch_timer.setSingleShot(True)
         self.batch_timer.setTimerType(Qt.PreciseTimer)
@@ -108,7 +113,17 @@ class MainWindow(QMainWindow):
             status_grid.addWidget(value, index // 3, (index % 3) * 2 + 1)
         layout.addWidget(status_box)
 
-        output_box = QGroupBox("0x101 예약 등록 — MOVE/HOLD는 보드 설정 사용, PC 자동 OFF 없음")
+        control_box = QGroupBox("운전 제어 (0x100)")
+        control_row = QHBoxLayout(control_box)
+        self.run_button = QPushButton("AUTO RUN")
+        self.idle_button = QPushButton("IDLE / STOP")
+        control_row.addWidget(self.run_button)
+        control_row.addWidget(self.idle_button)
+        control_row.addStretch()
+        control_row.addWidget(QLabel("RUN은 AUTO에서만 허용, IDLE은 예약 취소·ALL OFF"))
+        layout.addWidget(control_box)
+
+        output_box = QGroupBox("0x101 예약 등록 — 채널 + MOVE/HOLD 전송")
         output_grid = QGridLayout(output_box)
         for index in range(12):
             channel = QCheckBox(f"CH{index + 1}")
@@ -130,14 +145,26 @@ class MainWindow(QMainWindow):
         self.repeat_count = QSpinBox()
         self.repeat_count.setRange(1, 1000)
         self.repeat_count.setValue(32)
+        self.move_ms = QSpinBox()
+        self.move_ms.setRange(0, 200)
+        self.move_ms.setValue(100)
+        self.move_ms.setSuffix(" ms")
+        self.hold_ms = QSpinBox()
+        self.hold_ms.setRange(0, 200)
+        self.hold_ms.setValue(100)
+        self.hold_ms.setSuffix(" ms")
         self.repeat_intervals = QLineEdit("20, 10, 50, 30, 100, 20, 56, 20, 43, 80")
         self.repeat_intervals.setPlaceholderText("예: 20, 10, 50, 30, 100")
-        output_grid.addWidget(QLabel("반복 횟수"), 3, 0)
-        output_grid.addWidget(self.repeat_count, 3, 1)
-        output_grid.addWidget(QLabel("전송 간격 시퀀스 (ms, 반복 적용)"), 3, 2)
-        output_grid.addWidget(self.repeat_intervals, 3, 3, 1, 2)
+        output_grid.addWidget(QLabel("MOVE"), 3, 0)
+        output_grid.addWidget(self.move_ms, 3, 1)
+        output_grid.addWidget(QLabel("HOLD"), 3, 2)
+        output_grid.addWidget(self.hold_ms, 3, 3)
+        output_grid.addWidget(QLabel("반복 횟수"), 4, 0)
+        output_grid.addWidget(self.repeat_count, 4, 1)
+        output_grid.addWidget(QLabel("전송 간격 시퀀스 (ms, 반복 적용)"), 4, 2)
+        output_grid.addWidget(self.repeat_intervals, 4, 3, 1, 2)
         self.batch_label = QLabel("대기")
-        output_grid.addWidget(self.batch_label, 3, 5)
+        output_grid.addWidget(self.batch_label, 4, 5)
         layout.addWidget(output_box)
 
         self.table = QTableWidget(0, 6)
@@ -152,6 +179,8 @@ class MainWindow(QMainWindow):
 
         self.refresh_button.clicked.connect(self.refresh_ports)
         self.connect_button.clicked.connect(self.toggle_connection)
+        self.run_button.clicked.connect(lambda: self._send_control(CONTROL_RUN))
+        self.idle_button.clicked.connect(lambda: self._send_control(CONTROL_IDLE))
         self.on_button.clicked.connect(self.turn_selected_on)
         self.off_selected_button.clicked.connect(self.repeat_selected)
         self.pulse_button.clicked.connect(self.repeat_sequential)
@@ -221,8 +250,9 @@ class MainWindow(QMainWindow):
 
     def _set_controls(self, enabled: bool) -> None:
         for widget in (
-            self.on_button, self.off_selected_button, self.pulse_button, self.off_button,
-            self.clear_button, self.heartbeat_box,
+            self.run_button, self.idle_button, self.on_button, self.off_selected_button,
+            self.pulse_button, self.off_button,
+            self.clear_button, self.heartbeat_box, self.move_ms, self.hold_ms,
         ):
             widget.setEnabled(enabled)
 
@@ -255,7 +285,10 @@ class MainWindow(QMainWindow):
         if not self.batch_remaining:
             self.batch_timer.stop()
             return
-        self._send(output_frame(self.batch_masks[self.batch_index % len(self.batch_masks)]))
+        self._send(output_frame(
+            self.batch_masks[self.batch_index % len(self.batch_masks)],
+            self.move_ms.value(), self.hold_ms.value(),
+        ))
         self.batch_index += 1
         self.batch_remaining -= 1
         if not self.batch_remaining:
@@ -273,7 +306,7 @@ class MainWindow(QMainWindow):
         if mask == 0:
             QMessageBox.warning(self, "채널 미선택", "출력 채널을 하나 이상 선택하세요.")
             return
-        self._send(output_frame(mask))
+        self._send(output_frame(mask, self.move_ms.value(), self.hold_ms.value()))
 
     def all_off(self) -> None:
         self.batch_timer.stop()
@@ -291,6 +324,10 @@ class MainWindow(QMainWindow):
     def _send_heartbeat(self) -> None:
         self._send(heartbeat_frame(self.heartbeat_sequence))
         self.heartbeat_sequence = (self.heartbeat_sequence + 1) & 0xFF
+
+    def _send_control(self, command: int) -> None:
+        self._send(control_frame(command, self.control_sequence))
+        self.control_sequence = (self.control_sequence + 1) & 0xFF
 
     def _send(self, frame: CanFrame) -> None:
         if self.worker is not None and self.worker.isRunning():
@@ -322,9 +359,19 @@ class MainWindow(QMainWindow):
 
     @staticmethod
     def _describe(frame: CanFrame) -> str:
+        if frame.arbitration_id == CONTROL_ID and len(frame.data) >= 3:
+            command = "RUN" if frame.data[1] == CONTROL_RUN else "IDLE"
+            return f"운전 제어 / Echo {command} seq={frame.data[2]}"
         if frame.arbitration_id == OUTPUT_ID:
             mask = frame.data[0] | (frame.data[1] << 8) if len(frame.data) >= 2 else 0
-            return f"예약 / 접수 Echo mask=0x{mask:03X}" if mask else "전체 취소 / Echo"
+            if not mask:
+                return "전체 취소 / Echo"
+            move_ms = frame.data[2] | (frame.data[3] << 8)
+            hold_ms = frame.data[4] | (frame.data[5] << 8)
+            return (
+                f"예약 / 접수 Echo mask=0x{mask:03X} "
+                f"MOVE={move_ms} ms HOLD={hold_ms} ms"
+            )
         if frame.arbitration_id == HEARTBEAT_ID:
             return "Optional heartbeat"
         return "기타 프레임"
