@@ -50,7 +50,9 @@ build_info.yml.bak
 *.kicad_pcb-bak
 *-backups/
 .history/
+.konnect/
 fp-info-cache
+tmp*.rpt
 
 # generic backups
 *.bak
